@@ -1,0 +1,22 @@
+<html>
+  <body style="font-family: Arial, sans-serif; color: #1a1a1a;">
+    <h2 style="margin: 0 0 8px;">Low stock alert</h2>
+    <p style="margin: 0 0 16px;">These items have
+      {{threshold}}
+      or fewer units available across all locations.</p>
+    <table cellpadding="6" cellspacing="0" style="border-collapse: collapse; font-size: 14px;">
+      <thead>
+        <tr style="background: #f2f2f2; text-align: left;">
+          <th>Product</th><th>SKU</th><th>Available</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#each items}}
+          <tr style="border-top: 1px solid #e5e5e5;">
+            <td>{{product}}</td><td>{{sku}}</td><td><strong>{{available}}</strong></td>
+          </tr>
+        {{/each}}
+      </tbody>
+    </table>
+  </body>
+</html>

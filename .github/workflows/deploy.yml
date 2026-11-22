@@ -1,0 +1,66 @@
+name: Deploy
+
+# Builds the image, pushes it to GitHub Container Registry, then updates the server over SSH.
+# Required secrets: SSH_HOST, SSH_USER, SSH_KEY, DEPLOY_PATH (folder on the server holding
+# docker-compose.yml and .env). The server must be logged in to ghcr.io once (docker login ghcr.io).
+on:
+  push:
+    branches: [production]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: meta
+        run: |
+          repo="ghcr.io/${GITHUB_REPOSITORY,,}"   # image names must be lowercase
+          echo "image=${repo}:${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          echo "latest=${repo}:latest" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.image }}
+            ${{ steps.meta.outputs.latest }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    environment: production
+    steps:
+      - uses: appleboy/ssh-action@v1.0.3
+        env:
+          API_IMAGE: ${{ needs.build-and-push.outputs.image }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          envs: API_IMAGE
+          script: |
+            set -e
+            cd "${{ secrets.DEPLOY_PATH }}"
+            export API_IMAGE
+            docker compose pull api
+            docker compose up -d --no-build api   # entrypoint runs `prisma migrate deploy`
+            sleep 15
+            docker compose exec -T api wget -qO- http://127.0.0.1:5007/api/v1/health
+            docker image prune -f

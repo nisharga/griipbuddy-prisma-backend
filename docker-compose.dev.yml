@@ -1,0 +1,30 @@
+# Local development services. Usage: docker compose -f docker-compose.dev.yml up -d
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: griipbuddy-postgres
+    environment:
+      POSTGRES_USER: griipbuddy
+      POSTGRES_PASSWORD: griipbuddy
+      POSTGRES_DB: griipbuddy
+    ports:
+      - "5432:5432"
+    volumes:
+      - griipbuddy-pg-data:/var/lib/postgresql/data
+      # creates the separate test database used by `npm test`
+      - ./docker/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U griipbuddy"]
+      interval: 5s
+      retries: 10
+
+  # Optional — the API works without Redis (in-memory rate limits, inline jobs).
+  redis:
+    image: redis:7-alpine
+    container_name: griipbuddy-redis
+    profiles: ["redis"]
+    ports:
+      - "6379:6379"
+
+volumes:
+  griipbuddy-pg-data:

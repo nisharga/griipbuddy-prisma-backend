@@ -1,0 +1,50 @@
+# Production stack: API + PostgreSQL + Redis.
+#   cp .env.example .env   # then fill in secrets
+#   docker compose up -d --build
+services:
+  api:
+    build: .
+    image: ${API_IMAGE:-griipbuddy-api:latest}
+    container_name: griipbuddy-api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-griipbuddy}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-griipbuddy}?schema=public&connection_limit=10
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "${API_PORT:-5007}:5007"
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-griipbuddy}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-griipbuddy}
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-griipbuddy}"]
+      interval: 5s
+      retries: 10
+    # Not published to the host — only the API can reach it.
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+
+volumes:
+  pg-data:
+  redis-data:
+  uploads:

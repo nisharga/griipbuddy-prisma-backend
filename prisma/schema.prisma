@@ -1,0 +1,696 @@
+// GriipBuddy e-commerce database.
+//
+// Conventions (they keep the API identical to the original MongoDB backend):
+//   • Field names are the API's names (snake_case), so no mapping layer is needed.
+//   • Every foreign key is `<relation>_id`, next to a relation called `<relation>`.
+//     The response serializer exposes it as `<relation>`: the object when it was
+//     included in the query, otherwise the plain id (like Mongo's populate).
+//   • Money is Decimal(12,2). Quantities are Int with CHECK (>= 0) constraints
+//     added in the migration SQL.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------------------------------------------------- enums
+
+enum UserType {
+  STAFF
+  CUSTOMER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  BANNED
+  PENDING
+  DELETED
+}
+
+enum LocationType {
+  OUTLET
+  WAREHOUSE
+}
+
+enum AdjustmentAction {
+  ADDITION
+  DEDUCTION
+}
+
+enum OrderStatus {
+  INCOMPLETE
+  PLACED
+  IN_REVIEW
+  HANDED_OVER_TO_COURIER
+  IN_TRANSIT
+  DELIVERED
+  RETURN_REQUESTED
+  RETURNED
+  CANCELLED
+  FAILED
+  NO_RESPONSE
+  PARTIAL
+  PENDING_RETURN
+  PRE_ORDER
+  PROCESSING
+  AWAITING_STOCK
+  ACCEPTED
+}
+
+enum PaymentType {
+  CASH_ON_DELIVERY
+  DELIVERY_CHARGE
+  FULL_PAYMENT
+}
+
+enum OrderBy {
+  GUEST
+  USER
+  ADMIN
+}
+
+/// Where an order's stock stands: held for it, shipped out, or back on the shelf.
+enum StockState {
+  RESERVED
+  DEDUCTED
+  RELEASED
+}
+
+// ----------------------------------------------------------------- staff & access
+
+model Role {
+  id            String   @id @default(cuid())
+  role_name     String   @unique
+  permissions   String[]
+  created_by_id String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  users User[]
+
+  @@map("roles")
+}
+
+model User {
+  id                 String     @id @default(cuid())
+  full_name          String
+  /// Login id. Freed on soft delete (suffixed) so the number can be reused.
+  phone_number       String     @unique
+  email              String?
+  password           String
+  /// Role name, e.g. "SUPER_ADMIN"; "USER" for shoppers.
+  role               String
+  role_ref_id        String?
+  permissions        String[]
+  outlet_id          String?
+  gender             String?
+  profile_url        String?
+  date_of_birth      String?
+  address            Json?
+  userType           UserType   @default(STAFF)
+  status             UserStatus @default(ACTIVE)
+  is_verified_number Boolean    @default(true)
+  is_deleted         Boolean    @default(false)
+  last_active        DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  role_ref Role?             @relation(fields: [role_ref_id], references: [id], onDelete: SetNull)
+  outlet   BusinessLocation? @relation(fields: [outlet_id], references: [id], onDelete: SetNull)
+
+  orders               Order[]
+  order_status_changes OrderStatusHistory[]
+  order_logs           OrderLog[]
+  order_notes          OrderNote[]
+  stock_adjustments    StockAdjustment[]
+
+  purchases_created  Purchase[] @relation("PurchaseCreatedBy")
+  purchases_received Purchase[] @relation("PurchaseReceivedBy")
+
+  @@index([role])
+  @@index([is_deleted])
+  @@map("users")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actor_id  String?
+  action    String
+  entity    String
+  entity_id String?
+  meta      Json?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entity_id])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ----------------------------------------------------------------- catalog
+
+model BusinessLocation {
+  id              String       @id @default(cuid())
+  name            String
+  slug            String       @unique
+  type            LocationType
+  address         Json
+  location        Json?
+  manager_name    String?
+  contact_numbers String[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  staff          User[]
+  stocks         Stock[]
+  adjustments    StockAdjustment[]
+  assignedOrders Order[]
+
+  purchases Purchase[]
+
+  @@map("business_locations")
+}
+
+model Category {
+  id             String   @id @default(cuid())
+  name_en        String
+  name_bn        String?
+  description_en String?
+  description_bn String?
+  image_url      String?
+  /// [{ size: SQUARE|HORIZONTAL|VERTICAL, image, video }]
+  media          Json     @default("[]")
+  position       Int      @default(1)
+  slug           String   @unique
+  is_published   Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  /// Includes sub-sub-categories too; filter `subcategory_id: null` for direct children.
+  subcategories SubCategory[]
+  products      Product[]
+
+  @@map("categories")
+}
+
+/// Two levels in one table: a sub-category has `subcategory_id = null`;
+/// a sub-sub-category points at its parent sub-category.
+model SubCategory {
+  id             String   @id @default(cuid())
+  name_en        String
+  name_bn        String?
+  description_en String?
+  description_bn String?
+  image_url      String?
+  media          Json     @default("[]")
+  position       Int      @default(1)
+  slug           String   @unique
+  category_id    String
+  subcategory_id String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  category          Category      @relation(fields: [category_id], references: [id], onDelete: Restrict)
+  subcategory       SubCategory?  @relation("SubCategoryTree", fields: [subcategory_id], references: [id], onDelete: Restrict)
+  sub_subcategories SubCategory[] @relation("SubCategoryTree")
+
+  products_as_sub    Product[] @relation("ProductSubcategory")
+  products_as_subsub Product[] @relation("ProductSubSubcategory")
+
+  @@index([category_id])
+  @@index([subcategory_id])
+  @@map("sub_categories")
+}
+
+model Brand {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  tags      String[]
+  is_active Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products Product[]
+
+  @@map("brands")
+}
+
+model ReturnPolicy {
+  id                 String   @id @default(cuid())
+  title              String
+  slug               String   @unique
+  description        String
+  return_period_days Int
+  conditions         String[]
+  is_active          Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  products Product[]
+
+  @@map("return_policies")
+}
+
+model Product {
+  id                          String   @id @default(cuid())
+  name                        String
+  /// Freed on delete (suffixed) so it can be reused.
+  slug                        String   @unique
+  description                 String   @default("")
+  sku                         String   @unique
+  product_type                String   @default("SIMPLE")
+  is_pre_order                Boolean  @default(false)
+  sale_channels               Json     @default("{\"pos\":true,\"website\":true}")
+  thumbnail                   String?
+  slider_images               String[]
+  short_videos                Json     @default("[]")
+  min_order_qty               Int      @default(1)
+  max_order_qty               Int?
+  total_sold                  Int      @default(0)
+  attributes                  String[]
+  approximately_delivery_time String   @default("4 to 5 days")
+  is_free_delivery            Boolean  @default(false)
+  coin_per_order              Int      @default(0)
+  shipping_cost               Decimal  @default(0) @db.Decimal(12, 2)
+  /// Lowest variant sale price — kept in sync by the product service (for price sort/filter).
+  min_price                   Decimal  @default(0) @db.Decimal(12, 2)
+  shipping_cost_per_unit      Decimal  @default(0) @db.Decimal(12, 2)
+  warranty                    String?
+  ratings                     Json     @default("{\"average\":0,\"total\":0}")
+  search_tags                 String[]
+  offer_tags                  String[]
+  highlight_labels            String[]
+  social_links                Json?
+  dynamic_specs               Json?
+  product_specifications      Json?
+  product_card_properties     Json?
+  /// Required for live products (the API enforces it); cleared if the category is deleted later.
+  category_id                 String?
+  subcategory_id              String?
+  sub_subcategory_id          String?
+  brand_id                    String?
+  return_policy_id            String?
+  is_published                Boolean  @default(true)
+  is_deleted                  Boolean  @default(false)
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+
+  category        Category?     @relation(fields: [category_id], references: [id], onDelete: SetNull)
+  subcategory     SubCategory?  @relation("ProductSubcategory", fields: [subcategory_id], references: [id], onDelete: SetNull)
+  sub_subcategory SubCategory?  @relation("ProductSubSubcategory", fields: [sub_subcategory_id], references: [id], onDelete: SetNull)
+  brand           Brand?        @relation(fields: [brand_id], references: [id], onDelete: SetNull)
+  return_policy   ReturnPolicy? @relation(fields: [return_policy_id], references: [id], onDelete: SetNull)
+
+  variants   ProductVariant[]
+  stocks     Stock[]
+  orderItems OrderItem[]
+  faqs       Faq[]
+  reviews    Review[]
+
+  purchaseItems PurchaseItem[]
+
+  @@index([category_id])
+  @@index([subcategory_id])
+  @@index([is_deleted, is_published])
+  @@index([min_price])
+  @@index([total_sold])
+  @@map("products")
+}
+
+model ProductVariant {
+  id               String   @id @default(cuid())
+  product_id       String
+  attributes       String[]
+  /// e.g. { "Size": "42", "Color": "Black" }
+  attribute_values Json     @default("{}")
+  regular_price    Decimal  @default(0) @db.Decimal(12, 2)
+  sale_price       Decimal  @default(0) @db.Decimal(12, 2)
+  sku              String   @unique
+  barcode          String   @unique
+  discount_type    String   @default("FLAT")
+  discount_value   Decimal  @default(0) @db.Decimal(12, 2)
+  color_code       String?
+  image            String?
+  images           String[]
+  videos           String[]
+  image_based_on   String?
+  serial           Int      @default(1)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  product Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  stocks  Stock[]
+
+  purchaseItems PurchaseItem[]
+
+  @@index([product_id])
+  @@map("product_variants")
+}
+
+model Supplier {
+  id                    String   @id @default(cuid())
+  name                  String
+  contact_id            String   @unique
+  address               String
+  email                 String?
+  phone                 String
+  default_payment_terms String   @default("CASH ON DELIVERY")
+  tax_info              String?
+  notes                 String?
+  type                  String   @default("COMPANY")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  purchases Purchase[]
+
+  @@map("suppliers")
+}
+
+model Purchase {
+  id                   String    @id @default(cuid())
+  /// Human purchase number (1, 2, 3 …).
+  purchase_number      Int       @unique @default(autoincrement())
+  business_location_id String
+  supplier_id          String
+  status               String    @default("received") // draft | ordered | received | cancelled
+  purchase_date        DateTime  @default(now())
+  /// Sum of item lines (qty × unit_cost − discount).
+  items_total          Decimal   @default(0) @db.Decimal(12, 2)
+  expenses_total       Decimal   @default(0) @db.Decimal(12, 2)
+  total_cost           Decimal   @default(0) @db.Decimal(12, 2)
+  /// [{ type, amount, note }]
+  expenses_applied     Json      @default("[]")
+  attachments          String[]
+  additional_notes     String?
+  /// True while the items have been added to stock (status "received").
+  stock_applied        Boolean   @default(false)
+  created_by_id        String?
+  received_by_id       String?
+  received_at          DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  business_location BusinessLocation @relation(fields: [business_location_id], references: [id], onDelete: Restrict)
+  supplier          Supplier         @relation(fields: [supplier_id], references: [id], onDelete: Restrict)
+  created_by        User?            @relation("PurchaseCreatedBy", fields: [created_by_id], references: [id], onDelete: SetNull)
+  received_by       User?            @relation("PurchaseReceivedBy", fields: [received_by_id], references: [id], onDelete: SetNull)
+  items             PurchaseItem[]
+
+  @@index([supplier_id])
+  @@index([business_location_id])
+  @@index([status])
+  @@index([purchase_date])
+  @@map("purchases")
+}
+
+model PurchaseItem {
+  id          String  @id @default(cuid())
+  purchase_id String
+  product_id  String
+  variant_id  String
+  qty         Int
+  unit_cost   Decimal @db.Decimal(12, 2)
+  /// Discount on the whole line, not per unit.
+  discount    Decimal @default(0) @db.Decimal(12, 2)
+  line_total  Decimal @db.Decimal(12, 2)
+
+  purchase Purchase       @relation(fields: [purchase_id], references: [id], onDelete: Cascade)
+  product  Product        @relation(fields: [product_id], references: [id], onDelete: Restrict)
+  variant  ProductVariant @relation(fields: [variant_id], references: [id], onDelete: Restrict)
+
+  @@index([purchase_id])
+  @@index([variant_id])
+  @@map("purchase_items")
+}
+
+/// Product Q&A. Customers ask on the storefront (status "pending"); staff answer and
+/// set "active" to show it on the product page.
+model Faq {
+  id         String   @id @default(cuid())
+  product_id String
+  question   String
+  answer     String?
+  status     String   @default("pending") // active | inactive | pending
+  createdBy  String?
+  email      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  product Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@index([product_id, status])
+  @@index([createdAt])
+  @@map("faqs")
+}
+
+model Review {
+  id                String    @id @default(cuid())
+  product_id        String
+  order_id          String?
+  /// Shown as the reviewer's name (copied from the order).
+  customer_name     String
+  rating            Int
+  title             String?
+  content           String
+  /// [{ type: image|video, url, altText }]
+  media             Json      @default("[]")
+  status            String    @default("pending") // pending | approved | rejected
+  verified_purchase Boolean   @default(false)
+  upvotes           Int       @default(0)
+  downvotes         Int       @default(0)
+  seller_reply      String?
+  replied_at        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  product Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  order   Order?  @relation(fields: [order_id], references: [id], onDelete: SetNull)
+
+  @@unique([order_id, product_id])
+  @@index([product_id, status])
+  @@index([createdAt])
+  @@map("reviews")
+}
+
+// ----------------------------------------------------------------- inventory
+
+/// One row per variant × location. available = sellable; reserved = held by
+/// placed-but-unshipped orders. On hand = available + reserved.
+model Stock {
+  id                   String   @id @default(cuid())
+  product_id           String
+  variant_id           String
+  business_location_id String
+  available_quantity   Int      @default(0)
+  reserved_quantity    Int      @default(0)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  product           Product          @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  variant           ProductVariant   @relation(fields: [variant_id], references: [id], onDelete: Cascade)
+  business_location BusinessLocation @relation(fields: [business_location_id], references: [id], onDelete: Restrict)
+
+  @@unique([variant_id, business_location_id])
+  @@index([product_id])
+  @@index([business_location_id])
+  @@map("stocks")
+}
+
+model StockAdjustment {
+  id                   String           @id @default(cuid())
+  business_location_id String
+  action               AdjustmentAction
+  note                 String?
+  adjust_by_id         String?
+  activities_date      DateTime         @default(now())
+  /// Total units adjusted.
+  total_amount         Int              @default(0)
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  business_location BusinessLocation      @relation(fields: [business_location_id], references: [id], onDelete: Restrict)
+  adjust_by         User?                 @relation(fields: [adjust_by_id], references: [id], onDelete: SetNull)
+  products          StockAdjustmentItem[]
+
+  @@index([createdAt])
+  @@map("stock_adjustments")
+}
+
+model StockAdjustmentItem {
+  id                  String  @id @default(cuid())
+  stock_adjustment_id String
+  stock_id            String
+  product_id          String
+  variant_id          String
+  selected_variant    Json?
+  quantity            Int
+  old_quantity        Int
+  new_quantity        Int
+  product_note        String?
+
+  stock_adjustment StockAdjustment @relation(fields: [stock_adjustment_id], references: [id], onDelete: Cascade)
+
+  @@index([stock_adjustment_id])
+  @@index([product_id])
+  @@map("stock_adjustment_items")
+}
+
+// ----------------------------------------------------------------- orders
+
+model Order {
+  id                               String      @id @default(cuid())
+  /// Human order number (starts at 1001 — see migration).
+  order_serial_id                  Int         @unique @default(autoincrement())
+  invoice_number                   String      @unique
+  order_by                         OrderBy     @default(GUEST)
+  user_id                          String?
+  customer_name                    String
+  customer_phone                   String
+  customer_secondary_phone         String?
+  delivery_address                 Json
+  order_note                       String?
+  status                           OrderStatus @default(PLACED)
+  order_date                       DateTime    @default(now())
+  confirmed_date                   DateTime?
+  payment_type                     PaymentType
+  /// { payment_method, trxId, sender_number, paid_amount, files[] }
+  manual_payment_info              Json?
+  sub_total                        Decimal     @db.Decimal(12, 2)
+  delivery_charge                  Decimal     @default(0) @db.Decimal(12, 2)
+  total_discount                   Decimal     @default(0) @db.Decimal(12, 2)
+  total_amount                     Decimal     @db.Decimal(12, 2)
+  payable_amount                   Decimal     @default(0) @db.Decimal(12, 2)
+  paid_amount                      Decimal     @default(0) @db.Decimal(12, 2)
+  COD                              Decimal     @default(0) @map("cod") @db.Decimal(12, 2)
+  is_delivery_charge_paid          Boolean     @default(false)
+  is_called                        Boolean     @default(false)
+  is_assigned_to_business_location Boolean     @default(false)
+  assigned_business_location_id    String?
+  transfer_to_courier              Boolean     @default(false)
+  stock_state                      StockState  @default(RESERVED)
+  is_deleted                       Boolean     @default(false)
+  createdAt                        DateTime    @default(now())
+  updatedAt                        DateTime    @updatedAt
+
+  user                       User?                  @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  assigned_business_location BusinessLocation?      @relation(fields: [assigned_business_location_id], references: [id], onDelete: SetNull)
+  products                   OrderItem[]
+  status_history             OrderStatusHistory[]
+  logs                       OrderLog[]
+  admin_notes                OrderNote[]
+  call_logs                  OrderCallLog[]
+  stock_allocations          OrderStockAllocation[]
+  reviews                    Review[]
+
+  @@index([status])
+  @@index([order_date])
+  @@index([customer_phone])
+  @@index([is_deleted])
+  @@map("orders")
+}
+
+model OrderItem {
+  id                     String  @id @default(cuid())
+  order_id               String
+  product_id             String
+  variant_id             String
+  /// Copied for search/filters (the snapshot below is the source of truth).
+  variant_sku            String
+  product_name           String
+  total_quantity         Int
+  unit_price             Decimal @db.Decimal(12, 2)
+  total_price            Decimal @db.Decimal(12, 2)
+  discount_type          String  @default("FLAT")
+  discount_amount        Decimal @default(0) @db.Decimal(12, 2)
+  total_discount         Decimal @default(0) @db.Decimal(12, 2)
+  shipping_cost          Decimal @default(0) @db.Decimal(12, 2)
+  shipping_cost_per_unit Decimal @default(0) @db.Decimal(12, 2)
+  total_shipping_cost    Decimal @default(0) @db.Decimal(12, 2)
+  is_free_delivery       Boolean @default(false)
+  coin_per_order         Int     @default(0)
+  /// Variant snapshot at order time: { _id, attributes, attribute_values, regular_price, sale_price, sku, barcode }
+  selected_variant       Json
+  status                 String?
+
+  order   Order   @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [product_id], references: [id], onDelete: Restrict)
+
+  @@index([order_id])
+  @@index([variant_sku])
+  @@map("order_items")
+}
+
+model OrderStatusHistory {
+  id            String      @id @default(cuid())
+  order_id      String
+  status        OrderStatus
+  changed_by_id String?
+  changed_at    DateTime    @default(now())
+
+  order      Order @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  changed_by User? @relation(fields: [changed_by_id], references: [id], onDelete: SetNull)
+
+  @@index([order_id])
+  @@map("order_status_history")
+}
+
+model OrderLog {
+  id       String   @id @default(cuid())
+  order_id String
+  action   String
+  user_id  String?
+  time     DateTime @default(now())
+
+  order Order @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  user  User? @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@index([order_id])
+  @@map("order_logs")
+}
+
+model OrderNote {
+  id          String   @id @default(cuid())
+  order_id    String
+  note        String
+  added_by_id String?
+  added_at    DateTime @default(now())
+
+  order    Order @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  added_by User? @relation(fields: [added_by_id], references: [id], onDelete: SetNull)
+
+  @@index([order_id])
+  @@map("order_notes")
+}
+
+model OrderCallLog {
+  id             String   @id @default(cuid())
+  order_id       String
+  called_by_id   String?
+  called_by_name String
+  called_at      DateTime @default(now())
+
+  order Order @relation(fields: [order_id], references: [id], onDelete: Cascade)
+
+  @@index([order_id])
+  @@map("order_call_logs")
+}
+
+/// Which stock rows an order took its units from (so they can be returned exactly).
+model OrderStockAllocation {
+  id         String @id @default(cuid())
+  order_id   String
+  stock_id   String
+  variant_id String
+  quantity   Int
+
+  order Order @relation(fields: [order_id], references: [id], onDelete: Cascade)
+
+  @@index([order_id])
+  @@map("order_stock_allocations")
+}
