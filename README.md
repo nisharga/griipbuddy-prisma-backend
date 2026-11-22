@@ -117,4 +117,5 @@ Put nginx (or another TLS proxy) in front; `TRUST_PROXY=1` makes rate limits use
 
 Same scope as `project-server`: storefront customer accounts, coupons, reviews and banner/hero
 editors (they return empty data), courier integration, POS, purchases, reports.
+
 # griipbuddy-prisma-backend

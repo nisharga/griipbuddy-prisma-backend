@@ -18,8 +18,17 @@ type ReviewRow = Review & {
 
 /** The shape the admin and storefront read (camelCase names from the old API). */
 const present = (r: ReviewRow) => {
-  const { upvotes, downvotes, seller_reply, replied_at, verified_purchase, customer_name, product_id, order_id, ...rest } =
-    r;
+  const {
+    upvotes,
+    downvotes,
+    seller_reply,
+    replied_at,
+    verified_purchase,
+    customer_name,
+    product_id,
+    order_id,
+    ...rest
+  } = r;
   return {
     ...rest,
     product: r.product ?? product_id,

@@ -13,29 +13,38 @@ const calls = vi.hoisted(() => ({
 }));
 
 vi.mock("cloudinary", () => {
-  const stream = (method: string) => (options: Record<string, unknown>, cb: (err?: unknown, res?: unknown) => void) => {
-    calls.method.push(method);
-    calls.options.push(options);
-    return {
-      end: (buffer: Buffer) =>
-        calls.fail
-          ? cb({ message: "Invalid api_key" })
-          : cb(undefined, {
-              secure_url: `https://res.cloudinary.com/demo/image/upload/v1/${String(options.folder)}/${String(options.public_id)}.jpg`,
-              bytes: buffer.length,
-            }),
+  const stream =
+    (method: string) => (options: Record<string, unknown>, cb: (err?: unknown, res?: unknown) => void) => {
+      calls.method.push(method);
+      calls.options.push(options);
+      return {
+        end: (buffer: Buffer) =>
+          calls.fail
+            ? cb({ message: "Invalid api_key" })
+            : cb(undefined, {
+                secure_url: `https://res.cloudinary.com/demo/image/upload/v1/${String(options.folder)}/${String(options.public_id)}.jpg`,
+                bytes: buffer.length,
+              }),
+      };
     };
-  };
   return {
     v2: {
       config: (c: Record<string, unknown>) => (calls.config = c),
-      uploader: { upload_stream: stream("upload_stream"), upload_chunked_stream: stream("upload_chunked_stream") },
+      uploader: {
+        upload_stream: stream("upload_stream"),
+        upload_chunked_stream: stream("upload_chunked_stream"),
+      },
     },
   };
 });
 
 const file = (size: number, name = "photo.jpg") =>
-  ({ originalname: name, mimetype: "image/jpeg", size, buffer: Buffer.alloc(Math.min(size, 16)) }) as Express.Multer.File;
+  ({
+    originalname: name,
+    mimetype: "image/jpeg",
+    size,
+    buffer: Buffer.alloc(Math.min(size, 16)),
+  }) as Express.Multer.File;
 
 describe("file storage → Cloudinary", () => {
   let saveFile: (f: Express.Multer.File, folder: string) => Promise<string>;
@@ -56,7 +65,9 @@ describe("file storage → Cloudinary", () => {
 
   it("uploads into <folder>/<kind> and returns the https link", async () => {
     const url = await saveFile(file(1024), "images");
-    expect(url).toMatch(/^https:\/\/res\.cloudinary\.com\/demo\/image\/upload\/v1\/shop\/images\/[0-9a-f-]{36}\.jpg$/);
+    expect(url).toMatch(
+      /^https:\/\/res\.cloudinary\.com\/demo\/image\/upload\/v1\/shop\/images\/[0-9a-f-]{36}\.jpg$/
+    );
     expect(calls.method).toEqual(["upload_stream"]);
     expect(calls.options[0]).toMatchObject({ folder: "shop/images", resource_type: "auto" });
     expect(calls.config).toMatchObject({ cloud_name: "demo", api_key: "key", secure: true });

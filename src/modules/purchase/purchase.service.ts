@@ -28,12 +28,24 @@ const INCLUDE = {
   },
 } satisfies Prisma.PurchaseInclude;
 
-type Line = { product_id: string; variant_id: string; qty: number; unit_cost: number; discount: number; line_total: number };
+type Line = {
+  product_id: string;
+  variant_id: string;
+  qty: number;
+  unit_cost: number;
+  discount: number;
+  line_total: number;
+};
 
 /** Checks references and works out line and purchase totals. */
 const prepare = async (
   db: Db,
-  input: { business_location: string; supplier: string; items: PurchaseInput["items"]; expenses_applied?: PurchaseInput["expenses_applied"] }
+  input: {
+    business_location: string;
+    supplier: string;
+    items: PurchaseInput["items"];
+    expenses_applied?: PurchaseInput["expenses_applied"];
+  }
 ) => {
   const [location, supplier] = await Promise.all([
     db.businessLocation.findUnique({ where: { id: input.business_location }, select: { id: true } }),
@@ -52,7 +64,8 @@ const prepare = async (
   const lines: Line[] = input.items.map((i) => {
     const v = variants.find((x) => x.id === i.variant);
     if (!v || v.product.is_deleted) throw notFound(`Product variant ${i.variant}`);
-    if (v.product_id !== i.product) throw badRequest(`Variant ${v.sku} does not belong to the selected product.`);
+    if (v.product_id !== i.product)
+      throw badRequest(`Variant ${v.sku} does not belong to the selected product.`);
     return {
       product_id: v.product_id,
       variant_id: v.id,
@@ -69,18 +82,32 @@ const prepare = async (
 };
 
 /** Add (+1) or take back (−1) a purchase's quantities at a location. */
-const moveStock = async (tx: Db, locationId: string, lines: { variant_id: string; qty: number }[], sign: 1 | -1) => {
-  await StockService.ensureStockRows(tx, { variantIds: lines.map((l) => l.variant_id), locationIds: [locationId] });
+const moveStock = async (
+  tx: Db,
+  locationId: string,
+  lines: { variant_id: string; qty: number }[],
+  sign: 1 | -1
+) => {
+  await StockService.ensureStockRows(tx, {
+    variantIds: lines.map((l) => l.variant_id),
+    locationIds: [locationId],
+  });
   for (const l of lines) {
     if (sign === 1) {
       await tx.stock.update({
-        where: { variant_id_business_location_id: { variant_id: l.variant_id, business_location_id: locationId } },
+        where: {
+          variant_id_business_location_id: { variant_id: l.variant_id, business_location_id: locationId },
+        },
         data: { available_quantity: { increment: l.qty } },
       });
       continue;
     }
     const { count } = await tx.stock.updateMany({
-      where: { variant_id: l.variant_id, business_location_id: locationId, available_quantity: { gte: l.qty } },
+      where: {
+        variant_id: l.variant_id,
+        business_location_id: locationId,
+        available_quantity: { gte: l.qty },
+      },
       data: { available_quantity: { decrement: l.qty } },
     });
     if (!count) {

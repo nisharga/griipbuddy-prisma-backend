@@ -277,7 +277,15 @@ const getStockReport = async (p: IPagination, f: StockReportFilters) => {
           ]
         : []),
       ...(f.sku
-        ? [{ OR: [{ sku: contains(f.sku) }, { barcode: contains(f.sku) }, { product: { sku: contains(f.sku) } }] }]
+        ? [
+            {
+              OR: [
+                { sku: contains(f.sku) },
+                { barcode: contains(f.sku) },
+                { product: { sku: contains(f.sku) } },
+              ],
+            },
+          ]
         : []),
     ],
   };
@@ -343,7 +351,11 @@ const getStockReport = async (p: IPagination, f: StockReportFilters) => {
   // summary over all matching rows (not just this page)
   const byCategory = new Map<string, Bucket>();
   const bySubcategory = new Map<string, Bucket>();
-  const add = (map: Map<string, Bucket>, key: { id: string; name: string } | null, r: (typeof rows)[number]) => {
+  const add = (
+    map: Map<string, Bucket>,
+    key: { id: string; name: string } | null,
+    r: (typeof rows)[number]
+  ) => {
     const k = key?.id ?? "uncategorized";
     const b = map.get(k) ?? {
       _id: k,
@@ -386,7 +398,9 @@ const getStockReport = async (p: IPagination, f: StockReportFilters) => {
     summary_by_subcategory: [...bySubcategory.values()],
   };
 
-  const sortBy = (REPORT_SORTS as readonly string[]).includes(f.sortBy ?? "") ? f.sortBy! : "available_quantity";
+  const sortBy = (REPORT_SORTS as readonly string[]).includes(f.sortBy ?? "")
+    ? f.sortBy!
+    : "available_quantity";
   const dir = f.sortOrder === "asc" ? 1 : -1;
   const key = (r: (typeof rows)[number]): string | number =>
     sortBy === "name" ? r.product.name : (r[sortBy as keyof typeof r] as string | number);
@@ -443,7 +457,9 @@ const getVariantReport = async (variantId: string, movementsLimit = 20) => {
     prisma.stockAdjustmentItem.findMany({
       where: { variant_id: variantId },
       include: {
-        stock_adjustment: { select: { action: true, note: true, createdAt: true, business_location: LOCATION } },
+        stock_adjustment: {
+          select: { action: true, note: true, createdAt: true, business_location: LOCATION },
+        },
       },
       orderBy: { stock_adjustment: { createdAt: "desc" } },
       take,
@@ -452,7 +468,13 @@ const getVariantReport = async (variantId: string, movementsLimit = 20) => {
       where: { variant_id: variantId, purchase: { stock_applied: true } },
       include: {
         purchase: {
-          select: { purchase_number: true, additional_notes: true, received_at: true, createdAt: true, business_location: LOCATION },
+          select: {
+            purchase_number: true,
+            additional_notes: true,
+            received_at: true,
+            createdAt: true,
+            business_location: LOCATION,
+          },
         },
       },
       orderBy: { purchase: { received_at: "desc" } },

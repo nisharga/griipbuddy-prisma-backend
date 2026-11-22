@@ -11,7 +11,12 @@ const router = express.Router();
 router.get("/public/product/:slug", ReviewController.getProductReviews);
 router.get("/public/rating/:slug", ReviewController.getProductRating);
 router.post("/", reviewLimiter, validateRequest(ReviewValidation.createSchema), ReviewController.create);
-router.patch("/:id/helpful", reviewLimiter, validateRequest(ReviewValidation.voteSchema), ReviewController.vote);
+router.patch(
+  "/:id/helpful",
+  reviewLimiter,
+  validateRequest(ReviewValidation.voteSchema),
+  ReviewController.vote
+);
 
 // admin
 router.get("/", ...staff(["review.view", "review.update"]), ReviewController.getAll);
