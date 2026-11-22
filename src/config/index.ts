@@ -4,7 +4,7 @@ import { z } from "zod";
 /**
  * All configuration comes from environment variables, validated once at boot.
  * A missing or malformed value stops the process with a clear message instead
- * of failing later at runtime. Optional integrations (Redis, S3, SMS, SMTP)
+ * of failing later at runtime. Optional integrations (Redis, Cloudinary, S3, SMS, SMTP)
  * switch themselves off when their variables are empty.
  */
 const bool = z
@@ -50,6 +50,11 @@ const schema = z.object({
   AWS_REGION: optional,
   AWS_BUCKET_NAME: optional,
   AWS_FILE_LOAD_BASE_URL: optional,
+
+  CLOUDINARY_CLOUD_NAME: optional,
+  CLOUDINARY_API_KEY: optional,
+  CLOUDINARY_API_SECRET: optional,
+  CLOUDINARY_FOLDER: z.string().default("uploads"),
 
   SMS_API_KEY: optional,
   SMS_SENDER_ID: optional,
@@ -98,6 +103,15 @@ const config = {
   },
   bcryptRounds: e.BCRYPT_SALT_ROUNDS,
   delivery: { insideDhaka: e.DELIVERY_CHARGE_INSIDE_DHAKA, outsideDhaka: e.DELIVERY_CHARGE_OUTSIDE_DHAKA },
+  cloudinary:
+    e.CLOUDINARY_CLOUD_NAME && e.CLOUDINARY_API_KEY && e.CLOUDINARY_API_SECRET
+      ? {
+          cloudName: e.CLOUDINARY_CLOUD_NAME,
+          apiKey: e.CLOUDINARY_API_KEY,
+          apiSecret: e.CLOUDINARY_API_SECRET,
+          folder: e.CLOUDINARY_FOLDER.replace(/^\/+|\/+$/g, ""),
+        }
+      : undefined,
   s3:
     e.AWS_ACCESS_KEY_ID && e.AWS_SECRET_ACCESS_KEY && e.AWS_REGION && e.AWS_BUCKET_NAME
       ? {
