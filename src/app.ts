@@ -4,11 +4,11 @@ import helmet from "helmet";
 import compression from "compression";
 import config, { API_PREFIX, APP_NAME, BODY_SIZE_LIMIT, LOCAL_UPLOADS_CACHE } from "@/config";
 import { LOCAL_UPLOAD_DIR } from "@/helpers/fileStorage";
-import { requestLogger } from "@/app/middlewares/requestLogger";
-import { globalLimiter } from "@/app/middlewares/rateLimiter";
-import globalErrorHandler from "@/app/middlewares/globalErrorHandler";
-import notFound from "@/app/middlewares/notFound";
-import routes from "@/app/routes";
+import { requestLogger } from "@/middlewares/requestLogger";
+import { globalLimiter } from "@/middlewares/rateLimiter";
+import globalErrorHandler from "@/middlewares/globalErrorHandler";
+import notFound from "@/middlewares/notFound";
+import routes from "@/routes";
 
 export const createApp = () => {
   const app = express();

@@ -36,7 +36,7 @@ WHERE available >= n` inside `prisma.$transaction` — no overselling, no manual
 
 ## Folder structure
 
-Follows `0.portfolio-backend`: `src/app/{middlewares,modules,routes,jobs}`, `src/{config,constants,errors,helpers,interfaces,shared}`,
+Folders: `src/{modules,middlewares,routes,jobs,config,constants,errors,helpers,interfaces,shared}`,
 and each module as `<name>.route.ts` · `<name>.controller.ts` · `<name>.service.ts` · `<name>.validation.ts` · `index.ts`.
 The full tree is in the [README](../README.md#project-layout).
 
