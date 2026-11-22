@@ -1,0 +1,301 @@
+{
+  "businessLocations": [
+    {
+      "name": "Main Outlet",
+      "type": "OUTLET",
+      "address": "House 12, Road 5, Dhanmondi, Dhaka",
+      "manager_name": "Rafiq Ahmed",
+      "contact_numbers": ["01711000101"]
+    },
+    {
+      "name": "Central Warehouse",
+      "type": "WAREHOUSE",
+      "address": "Plot 7, Tejgaon Industrial Area, Dhaka",
+      "contact_numbers": ["01711000102"]
+    },
+    {
+      "name": "Chattogram Outlet",
+      "type": "OUTLET",
+      "address": "GEC Circle, Chattogram",
+      "manager_name": "Nusrat Jahan",
+      "contact_numbers": ["01811000103"]
+    }
+  ],
+
+  "brands": [
+    { "name": "Leather Craft", "tags": ["leather", "premium"] },
+    { "name": "Urban Step", "tags": ["footwear"] },
+    { "name": "Bengal Hide", "tags": ["leather", "handmade"] }
+  ],
+
+  "returnPolicies": [
+    {
+      "title": "7 Days Easy Return",
+      "description": "Return unused items in original packaging within 7 days of delivery.",
+      "return_period_days": 7,
+      "conditions": ["Unused", "Original packaging", "Invoice required"]
+    },
+    {
+      "title": "Exchange Only (14 Days)",
+      "description": "Size or colour exchange within 14 days. No cash refunds.",
+      "return_period_days": 14,
+      "conditions": ["Exchange only", "Unused"]
+    }
+  ],
+
+  "suppliers": [
+    {
+      "contact_id": "SUP-0001",
+      "name": "Dhaka Leather Works Ltd.",
+      "type": "COMPANY",
+      "phone": "01711000001",
+      "address": "Plot 12, Hazaribagh Tannery Area, Dhaka 1209",
+      "default_payment_terms": "NET_30"
+    },
+    {
+      "contact_id": "SUP-0002",
+      "name": "Bengal Footwear Industries",
+      "type": "COMPANY",
+      "phone": "01711000002",
+      "address": "BSCIC Industrial Estate, Tongi, Gazipur",
+      "default_payment_terms": "NET_15"
+    }
+  ],
+
+  "categories": [
+    {
+      "name_en": "Bags",
+      "name_bn": "ব্যাগ",
+      "image": "images/category-bags.jpg",
+      "subcategories": [
+        { "name_en": "Backpacks" },
+        { "name_en": "Wallets" },
+        { "name_en": "Handbags", "name_bn": "হ্যান্ডব্যাগ" }
+      ]
+    },
+    {
+      "name_en": "Footwear",
+      "name_bn": "জুতা",
+      "image": "images/category-footwear.jpg",
+      "subcategories": [
+        { "name_en": "Sneakers", "children": [{ "name_en": "Running" }, { "name_en": "Casual" }] },
+        { "name_en": "Formal Shoes" }
+      ]
+    },
+    {
+      "name_en": "Accessories",
+      "name_bn": "এক্সেসরিজ",
+      "image": "images/category-accessories.jpg",
+      "subcategories": [{ "name_en": "Belts" }, { "name_en": "Card Holders" }]
+    }
+  ],
+
+  "products": [
+    {
+      "sku": "BAG-101",
+      "name": "Executive Leather Laptop Backpack",
+      "description": "Full-grain leather backpack with a padded 15.6\" laptop sleeve and water-resistant lining.",
+      "category": "Bags",
+      "subcategory": "Backpacks",
+      "brand": "Leather Craft",
+      "return_policy": "7 Days Easy Return",
+      "supplier": "SUP-0001",
+      "thumbnail": "images/bag-101.jpg",
+      "slider_images": ["images/bag-101-2.jpg", "images/bag-101-3.jpg"],
+      "warranty": "6 months stitching warranty",
+      "search_tags": ["backpack", "laptop bag", "leather"],
+      "attributes": ["Color"],
+      "variants": [
+        {
+          "attribute_values": { "Color": "Black" },
+          "regular_price": 6500,
+          "sale_price": 5800,
+          "cost": 3900,
+          "stock": { "Main Outlet": 8, "Central Warehouse": 25 }
+        },
+        {
+          "attribute_values": { "Color": "Brown" },
+          "regular_price": 6500,
+          "sale_price": 5800,
+          "cost": 3900,
+          "image": "images/bag-101-brown.jpg",
+          "stock": { "Main Outlet": 5, "Central Warehouse": 20 }
+        }
+      ]
+    },
+    {
+      "sku": "BAG-102",
+      "name": "Women's Tote Handbag",
+      "description": "Spacious genuine leather tote with an inner zip pocket and magnetic closure.",
+      "category": "Bags",
+      "subcategory": "Handbags",
+      "brand": "Bengal Hide",
+      "return_policy": "Exchange Only (14 Days)",
+      "supplier": "SUP-0001",
+      "thumbnail": "images/bag-102.jpg",
+      "search_tags": ["tote", "handbag", "women"],
+      "attributes": ["Color"],
+      "variants": [
+        {
+          "attribute_values": { "Color": "Tan" },
+          "regular_price": 4800,
+          "sale_price": 4200,
+          "cost": 2700,
+          "stock": { "Main Outlet": 6, "Chattogram Outlet": 4, "Central Warehouse": 15 }
+        },
+        {
+          "attribute_values": { "Color": "Maroon" },
+          "regular_price": 4800,
+          "sale_price": 4200,
+          "cost": 2700,
+          "stock": { "Main Outlet": 4, "Central Warehouse": 10 }
+        }
+      ]
+    },
+    {
+      "sku": "WLT-102",
+      "name": "Slim Bifold Wallet",
+      "description": "Minimal bifold wallet with 6 card slots and RFID-blocking lining.",
+      "category": "Bags",
+      "subcategory": "Wallets",
+      "brand": "Leather Craft",
+      "return_policy": "7 Days Easy Return",
+      "supplier": "SUP-0001",
+      "thumbnail": "images/wlt-102.jpg",
+      "search_tags": ["wallet", "rfid", "slim"],
+      "attributes": [],
+      "variants": [
+        {
+          "regular_price": 1800,
+          "sale_price": 1500,
+          "cost": 850,
+          "stock": { "Main Outlet": 20, "Chattogram Outlet": 10, "Central Warehouse": 60 }
+        }
+      ]
+    },
+    {
+      "sku": "SNK-201",
+      "name": "AirFlex Running Shoe",
+      "description": "Lightweight breathable mesh running shoe with a cushioned EVA sole.",
+      "category": "Footwear",
+      "subcategory": "Sneakers",
+      "sub_subcategory": "Running",
+      "brand": "Urban Step",
+      "return_policy": "Exchange Only (14 Days)",
+      "supplier": "SUP-0002",
+      "thumbnail": "images/snk-201.jpg",
+      "slider_images": ["images/snk-201-2.jpg"],
+      "search_tags": ["running", "sneaker", "sports"],
+      "attributes": ["Size"],
+      "variants": [
+        {
+          "attribute_values": { "Size": "40" },
+          "regular_price": 3500,
+          "sale_price": 2990,
+          "cost": 1700,
+          "stock": { "Main Outlet": 4, "Central Warehouse": 12 }
+        },
+        {
+          "attribute_values": { "Size": "41" },
+          "regular_price": 3500,
+          "sale_price": 2990,
+          "cost": 1700,
+          "stock": { "Main Outlet": 6, "Central Warehouse": 15 }
+        },
+        {
+          "attribute_values": { "Size": "42" },
+          "regular_price": 3500,
+          "sale_price": 2990,
+          "cost": 1700,
+          "stock": { "Main Outlet": 6, "Central Warehouse": 15 }
+        },
+        {
+          "attribute_values": { "Size": "43" },
+          "regular_price": 3500,
+          "sale_price": 2990,
+          "cost": 1700,
+          "stock": { "Main Outlet": 3, "Central Warehouse": 10 }
+        }
+      ]
+    },
+    {
+      "sku": "FRM-201",
+      "name": "Classic Oxford Formal Shoe",
+      "description": "Hand-stitched calf leather Oxford with a leather sole.",
+      "category": "Footwear",
+      "subcategory": "Formal Shoes",
+      "brand": "Leather Craft",
+      "return_policy": "Exchange Only (14 Days)",
+      "supplier": "SUP-0002",
+      "thumbnail": "images/frm-201.jpg",
+      "search_tags": ["formal", "oxford", "office"],
+      "attributes": ["Color", "Size"],
+      "variants": [
+        {
+          "attribute_values": { "Color": "Black", "Size": "41" },
+          "regular_price": 5200,
+          "sale_price": 4700,
+          "cost": 2900,
+          "stock": { "Main Outlet": 3, "Central Warehouse": 8 }
+        },
+        {
+          "attribute_values": { "Color": "Black", "Size": "42" },
+          "regular_price": 5200,
+          "sale_price": 4700,
+          "cost": 2900,
+          "stock": { "Main Outlet": 3, "Central Warehouse": 8 }
+        },
+        {
+          "attribute_values": { "Color": "Brown", "Size": "41" },
+          "regular_price": 5200,
+          "sale_price": 4700,
+          "cost": 2900,
+          "stock": { "Main Outlet": 2, "Central Warehouse": 6 }
+        },
+        {
+          "attribute_values": { "Color": "Brown", "Size": "42" },
+          "regular_price": 5200,
+          "sale_price": 4700,
+          "cost": 2900,
+          "stock": { "Main Outlet": 2, "Central Warehouse": 6 }
+        }
+      ]
+    },
+    {
+      "sku": "BLT-301",
+      "name": "Reversible Leather Belt",
+      "description": "Two-in-one black/brown belt with a rotating silver buckle.",
+      "category": "Accessories",
+      "subcategory": "Belts",
+      "brand": "Bengal Hide",
+      "return_policy": "7 Days Easy Return",
+      "supplier": "SUP-0001",
+      "thumbnail": "images/blt-301.jpg",
+      "search_tags": ["belt", "reversible"],
+      "attributes": ["Size"],
+      "variants": [
+        {
+          "attribute_values": { "Size": "32" },
+          "regular_price": 1600,
+          "sale_price": 1350,
+          "cost": 700,
+          "stock": { "Main Outlet": 10, "Central Warehouse": 30 }
+        },
+        {
+          "attribute_values": { "Size": "34" },
+          "regular_price": 1600,
+          "sale_price": 1350,
+          "cost": 700,
+          "stock": { "Main Outlet": 10, "Central Warehouse": 30 }
+        },
+        {
+          "attribute_values": { "Size": "36" },
+          "regular_price": 1600,
+          "sale_price": 1350,
+          "cost": 700,
+          "stock": { "Main Outlet": 8, "Central Warehouse": 25 }
+        }
+      ]
+    }
+  ]
+}

@@ -8,6 +8,7 @@ const router = express.Router();
 
 // Reads are public (storefront navbar).
 router.get("/", CategoryController.getAll);
+router.get("/published/all", CategoryController.getPublished);
 router.get("/:idOrSlug", CategoryController.getOne);
 router.post(
   "/",

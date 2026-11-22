@@ -26,6 +26,18 @@ const getPublicProducts = catchAsync(async (req: Request, res: Response) => {
   ok(res, "Products fetched successfully.", result);
 });
 
+// Storefront home infinite scroll: `data.products` + top-level `meta.total_pages`.
+const getRandomProducts = catchAsync(async (req: Request, res: Response) => {
+  const result = await ProductPublicService.listRandom(paginationHelpers.calculatePagination(req, 20));
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Products fetched successfully.",
+    data: result,
+    meta: result.meta,
+  });
+});
+
 const getPublicProductsByIds = catchAsync(async (req: Request, res: Response) => {
   const ids = (queryString(req, "ids") ?? "")
     .split(",")
@@ -107,6 +119,7 @@ const deleteProduct = catchAsync(async (req: Request, res: Response) => {
 
 export const ProductController = {
   getPublicProducts,
+  getRandomProducts,
   getPublicProductsByIds,
   getPublicProductBySlug,
   getVariantsOfProduct,

@@ -574,6 +574,31 @@ const listPublic = async (
   return { products, data: products, meta: paginationHelpers.buildMeta(p, total) };
 };
 
+/**
+ * Published products in a shuffled order for the home page's infinite scroll.
+ * The shuffle is keyed to the day (UTC), so every page of one scroll session
+ * uses the same order — no repeats, nothing skipped — and the feed changes daily.
+ */
+const listRandom = async (p: IPagination) => {
+  const seed = new Date().toISOString().slice(0, 10);
+  const [rows, total] = await Promise.all([
+    prisma.$queryRaw<{ id: string }[]>`
+      SELECT id FROM products
+      WHERE is_deleted = false AND is_published = true
+      ORDER BY md5(id || ${seed})
+      LIMIT ${p.limit} OFFSET ${p.skip}`,
+    prisma.product.count({ where: LIVE }),
+  ]);
+  const ids = rows.map((r) => r.id);
+  const found = ids.length
+    ? await prisma.product.findMany({ where: { id: { in: ids } }, include: PUBLIC_INCLUDE })
+    : [];
+  const byId = new Map(found.map((x) => [x.id, x]));
+  const products = ids.flatMap((id) => byId.get(id) ?? []);
+  const meta = { ...paginationHelpers.buildMeta(p, total), total_pages: Math.ceil(total / p.limit) };
+  return { products, data: products, meta };
+};
+
 const getPublicBySlug = async (slugOrId: string) => {
   const product = await prisma.product.findFirst({
     where: { ...LIVE, OR: [{ slug: slugOrId }, { id: slugOrId }] },
@@ -588,4 +613,4 @@ const getPublicByIds = (ids: string[]) =>
     ? prisma.product.findMany({ where: { ...LIVE, id: { in: ids } }, include: PUBLIC_INCLUDE })
     : Promise.resolve([]);
 
-export const ProductPublicService = { listPublic, getPublicBySlug, getPublicByIds };
+export const ProductPublicService = { listPublic, listRandom, getPublicBySlug, getPublicByIds };

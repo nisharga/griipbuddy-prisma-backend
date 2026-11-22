@@ -9,6 +9,7 @@ const router = express.Router();
 // ---------------------------------------------------------------- storefront (public)
 router.get("/", ProductController.getPublicProducts);
 router.get("/ids", ProductController.getPublicProductsByIds);
+router.get("/public/random", ProductController.getRandomProducts);
 router.get("/slug/:slug", ProductController.getPublicProductBySlug);
 router.get("/variant/:productId", ProductController.getVariantsOfProduct);
 

@@ -19,6 +19,15 @@ const getAll = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getPublished = catchAsync(async (_req: Request, res: Response) => {
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Categories fetched successfully.",
+    data: await CategoryService.getPublished(),
+  });
+});
+
 const getOne = catchAsync(async (req: Request, res: Response) => {
   const result = await CategoryService.getOne(req.params.idOrSlug);
   sendResponse(res, {
@@ -54,4 +63,4 @@ const remove = catchAsync(async (req: Request, res: Response) => {
   sendResponse(res, { statusCode: httpStatus.OK, success: true, message: "Category deleted successfully." });
 });
 
-export const CategoryController = { getAll, getOne, create, update, remove };
+export const CategoryController = { getAll, getPublished, getOne, create, update, remove };

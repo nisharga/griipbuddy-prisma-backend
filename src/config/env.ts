@@ -1,7 +1,7 @@
 // Load .env into process.env (same as `import "dotenv/config"`, whose types
 // only resolve under node16/bundler module resolution).
 import dotenv from "dotenv";
-dotenv.config();
+dotenv.config({ quiet: true });
 import { z } from "zod";
 
 /**

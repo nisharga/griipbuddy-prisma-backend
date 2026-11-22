@@ -21,6 +21,10 @@ describe("catalog", () => {
     expect(shopper.body.data.data[0].subcategories[0].name_en).toBe("Sneakers");
     const admin = await api().get("/api/v1/category").set(auth(token));
     expect(admin.body.data.meta.total).toBe(2);
+    // Storefront navbar: published only — even for a staff token — with sub-categories.
+    const published = await api().get("/api/v1/category/published/all").set(auth(token));
+    expect(published.body.data.data.map((c: { name_en: string }) => c.name_en)).toEqual(["Footwear"]);
+    expect(published.body.data.data[0].subcategories[0].name_en).toBe("Sneakers");
     expect((await api().post("/api/v1/category").send({ name_en: "x" })).status).toBe(401);
   });
 

@@ -48,6 +48,16 @@ const getAll = async (p: IPagination, includeUnpublished: boolean) => {
   return { meta: paginationHelpers.buildMeta(p, total), data };
 };
 
+/** Storefront navbar / home: every published category with its sub-categories (no paging). */
+const getPublished = async () => {
+  const data = await prisma.category.findMany({
+    where: { is_published: true },
+    include: withSubcategories,
+    orderBy: ORDER,
+  });
+  return { meta: { page: 1, limit: data.length, total: data.length, totalPage: 1 }, data };
+};
+
 /** By id or slug (the admin's update page is /update-category/[slug]). */
 const getOne = async (idOrSlug: string) => {
   const category = await prisma.category.findFirst({
@@ -81,4 +91,4 @@ const remove = async (id: string) => {
   return prisma.category.delete({ where: { id } });
 };
 
-export const CategoryService = { getAll, getOne, create, update, remove };
+export const CategoryService = { getAll, getPublished, getOne, create, update, remove };
