@@ -1,0 +1,6 @@
+{
+  // Use the project's TypeScript (same version as `npm run type-check`),
+  // not the one bundled with VS Code.
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true
+}

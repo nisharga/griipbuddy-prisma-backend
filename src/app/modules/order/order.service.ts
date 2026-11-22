@@ -6,7 +6,7 @@ import { badRequest, conflict, notFound } from "@/errors/ApiError";
 import { paginationHelpers } from "@/helpers/paginationHelper";
 import { contains, money } from "@/helpers/queryHelper";
 import type { IPagination } from "@/interfaces/pagination";
-import { enqueue } from "@/app/jobs/queue";
+import { enqueue } from "@/jobs/queue";
 import { SOLD_STATUSES, StockService, type Allocation } from "@/app/modules/stock/stock.service";
 
 export const ORDER_STATUSES = Object.values(OrderStatus);

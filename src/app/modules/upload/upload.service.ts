@@ -1,6 +1,7 @@
 import multer from "multer";
 import { badRequest } from "@/errors/ApiError";
 import { saveFile } from "@/helpers/fileStorage";
+import { UPLOAD_LIMITS_MB } from "@/config";
 
 const MB = 1024 * 1024;
 
@@ -17,9 +18,9 @@ const isImage = (m: string) => m.startsWith("image/");
 const isVideo = (m: string) => m.startsWith("video/");
 
 export const uploaders = {
-  media: uploader(10, (m) => isImage(m) || isVideo(m), "image or video"),
-  video: uploader(200, isVideo, "video"),
-  paymentProof: uploader(5, isImage, "image"),
+  media: uploader(UPLOAD_LIMITS_MB.media, (m) => isImage(m) || isVideo(m), "image or video"),
+  video: uploader(UPLOAD_LIMITS_MB.video, isVideo, "video"),
+  paymentProof: uploader(UPLOAD_LIMITS_MB.paymentProof, isImage, "image"),
 };
 
 const uploadOne = async (file: Express.Multer.File | undefined, folder: string) => {

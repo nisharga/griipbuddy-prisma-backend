@@ -1,4 +1,7 @@
-import "dotenv/config";
+// Load .env into process.env (same as `import "dotenv/config"`, whose types
+// only resolve under node16/bundler module resolution).
+import dotenv from "dotenv";
+dotenv.config();
 import path from "node:path";
 import { defineConfig } from "prisma/config";
 

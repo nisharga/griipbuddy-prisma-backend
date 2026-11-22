@@ -1,14 +1,15 @@
 import { rateLimit, type Options } from "express-rate-limit";
 import { RedisStore } from "rate-limit-redis";
 import { redis } from "@/shared/redis";
-import config from "@/config";
+import config, { RATE_LIMITS } from "@/config";
 
 /**
  * Rate limiters. With Redis the counters are shared by every API instance;
  * without it each instance counts in memory. Disabled in tests.
  */
-const make = (name: string, windowMs: number, limit: number, message: string) =>
-  rateLimit({
+const make = (name: keyof typeof RATE_LIMITS) => {
+  const { windowMs, limit, message } = RATE_LIMITS[name];
+  return rateLimit({
     windowMs,
     limit,
     standardHeaders: "draft-7",
@@ -31,29 +32,15 @@ const make = (name: string, windowMs: number, limit: number, message: string) =>
       void options;
     },
   });
+};
 
 /** Every API request: generous, stops abuse. */
-export const globalLimiter = make("global", 60_000, 300, "Too many requests. Please slow down.");
+export const globalLimiter = make("global");
 /** Login / password endpoints. */
-export const authLimiter = make("auth", 60_000, 10, "Too many login attempts. Please try again in a minute.");
+export const authLimiter = make("auth");
 /** Public order placement and payment-proof uploads. */
-export const orderLimiter = make(
-  "order",
-  10 * 60_000,
-  20,
-  "Too many orders from this network. Please try again later."
-);
+export const orderLimiter = make("order");
 /** Storefront product questions. */
-export const faqLimiter = make(
-  "faq",
-  10 * 60_000,
-  10,
-  "Too many questions from this network. Please try again later."
-);
+export const faqLimiter = make("faq");
 /** Storefront reviews and helpful votes. */
-export const reviewLimiter = make(
-  "review",
-  10 * 60_000,
-  30,
-  "Too many review requests from this network. Please try again later."
-);
+export const reviewLimiter = make("review");

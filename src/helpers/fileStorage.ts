@@ -4,7 +4,7 @@ import { randomUUID } from "crypto";
 import httpStatus from "http-status";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { v2 as cloudinary, type UploadApiOptions, type UploadApiResponse } from "cloudinary";
-import config from "@/config";
+import config, { CLOUDINARY_CHUNK_SIZE } from "@/config";
 import ApiError from "@/errors/ApiError";
 import { logger } from "@/shared/logger";
 
@@ -18,9 +18,6 @@ import { logger } from "@/shared/logger";
 export const LOCAL_UPLOAD_DIR = path.join(process.cwd(), "uploads");
 
 // ------------------------------------------------------------------ Cloudinary
-
-/** Files above this go up in chunks (Cloudinary requires it for large videos). */
-const CHUNK_SIZE = 20 * 1024 * 1024;
 
 let cloudinaryConfigured = false;
 const cloud = () => {
@@ -43,7 +40,7 @@ const uploadToCloudinary = (file: Express.Multer.File, folder: string) =>
       folder: `${config.cloudinary!.folder}/${folder}`,
       public_id: randomUUID(),
       resource_type: "auto", // images, videos and PDFs alike
-      ...(file.size > CHUNK_SIZE ? { chunk_size: CHUNK_SIZE } : {}),
+      ...(file.size > CLOUDINARY_CHUNK_SIZE ? { chunk_size: CLOUDINARY_CHUNK_SIZE } : {}),
     };
     const done = (err?: { message?: string }, result?: UploadApiResponse) => {
       if (err || !result) {
@@ -56,7 +53,7 @@ const uploadToCloudinary = (file: Express.Multer.File, folder: string) =>
     };
     const uploader = cloud().uploader;
     const stream =
-      file.size > CHUNK_SIZE
+      file.size > CLOUDINARY_CHUNK_SIZE
         ? uploader.upload_chunked_stream(options, done)
         : uploader.upload_stream(options, done);
     stream.end(file.buffer);

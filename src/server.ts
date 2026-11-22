@@ -3,8 +3,8 @@ import config from "@/config";
 import { logger } from "@/shared/logger";
 import { prisma } from "@/shared/prisma";
 import { closeRedis } from "@/shared/redis";
-import { startWorker, stopJobs } from "@/app/jobs/queue";
-import { startCron, stopCron } from "@/app/jobs/cron";
+import { startWorker, stopJobs } from "@/jobs/queue";
+import { startCron, stopCron } from "@/jobs/cron";
 import { createApp } from "./app";
 
 let server: Server | undefined;
