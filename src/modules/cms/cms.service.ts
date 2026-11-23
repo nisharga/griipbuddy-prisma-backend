@@ -6,8 +6,12 @@ import { prisma } from "@/shared/prisma";
  * Banners, hero videos, top-bar messages and offers have no admin editor yet —
  * they return empty data and the storefront hides those sections.
  */
+
+/** Products a shopper can see. */
 const LIVE = { is_deleted: false, is_published: true } as const;
-const CARD = {
+
+/** The product fields a home-page card needs. */
+const CARD_FIELDS = {
   id: true,
   name: true,
   slug: true,
@@ -19,40 +23,52 @@ const CARD = {
   createdAt: true,
 } as const;
 
+/** Home page: categories, best sellers, and a "new arrivals" tab per category. */
 const getHomepage = async () => {
   const categories = await prisma.category.findMany({
     where: { is_published: true },
     orderBy: [{ position: "asc" }, { createdAt: "asc" }],
   });
-  const [bestSelling, perCategory] = await Promise.all([
-    prisma.product.findMany({
-      where: LIVE,
-      select: CARD,
-      orderBy: [{ total_sold: "desc" }, { createdAt: "desc" }],
-      take: 10,
-    }),
-    Promise.all(
-      categories.map((c) =>
-        prisma.product.findMany({
-          where: { ...LIVE, category_id: c.id },
-          select: CARD,
-          orderBy: { createdAt: "desc" },
-          take: 8,
-        })
-      )
-    ),
-  ]);
+
+  const bestSelling = await prisma.product.findMany({
+    where: LIVE,
+    select: CARD_FIELDS,
+    orderBy: [{ total_sold: "desc" }, { createdAt: "desc" }],
+    take: 10,
+  });
+
+  // Newest 8 products of each category (fetched in parallel).
+  const newestPerCategory = await Promise.all(
+    categories.map((category) =>
+      prisma.product.findMany({
+        where: { ...LIVE, category_id: category.id },
+        select: CARD_FIELDS,
+        orderBy: { createdAt: "desc" },
+        take: 8,
+      })
+    )
+  );
+
+  // Only categories that have products get a tab.
+  const newArrivals = categories
+    .map((category, i) => ({
+      id: category.id,
+      name: category.name_en,
+      slug: category.slug,
+      product_ids: newestPerCategory[i],
+    }))
+    .filter((tab) => tab.product_ids.length > 0);
+
+  // Field names below are the shape the storefront reads.
   return {
-    shop_by_category: categories.map((c) => ({ id: c.id, category_id: c })),
-    best_selling: bestSelling.map((p) => ({ id: p.id, product_id: p })),
-    // One "new arrivals" tab per category that has products.
-    new_arrivals: categories
-      .map((c, i) => ({ id: c.id, name: c.name_en, slug: c.slug, product_ids: perCategory[i] }))
-      .filter((tab) => tab.product_ids.length > 0),
+    shop_by_category: categories.map((category) => ({ id: category.id, category_id: category })),
+    best_selling: bestSelling.map((product) => ({ id: product.id, product_id: product })),
+    new_arrivals: newArrivals,
     leather_section: { enabled: false, title: "", button_text: "", button_link: "", product_ids: [] },
   };
 };
 
+// Not editable yet → empty (the storefront hides these sections).
 const getHeroSection = async () => [];
 const getBanners = async () => [];
 const getTopBarMessages = async () => [];

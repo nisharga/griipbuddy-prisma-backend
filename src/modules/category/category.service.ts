@@ -1,11 +1,15 @@
-import type { Prisma } from "@prisma/client";
+import type { Category, Prisma } from "@prisma/client";
 import { prisma } from "@/shared/prisma";
 import pick from "@/shared/pick";
 import { badRequest, notFound } from "@/errors/ApiError";
-import { paginationHelpers } from "@/helpers/paginationHelper";
+import { notId } from "@/helpers/queryHelper";
+import { paginate, sortBy } from "@/helpers/queryBuilder";
 import { uniqueSlug } from "@/helpers/slugHelper";
 import type { IPagination } from "@/interfaces/pagination";
 
+/** Categories (top level of the catalog). Each one lists its sub-categories. */
+
+// Only these fields can be set from the request body.
 const FIELDS = [
   "name_en",
   "name_bn",
@@ -16,10 +20,12 @@ const FIELDS = [
   "position",
   "is_published",
 ] as const;
+
+/** Display order: by `position`, then oldest first. */
 const ORDER = [{ position: "asc" as const }, { createdAt: "asc" as const }];
 
-/** Direct sub-categories with their own children (2 levels). */
-const withSubcategories = {
+/** Include the direct sub-categories and their own children (2 levels). */
+const WITH_SUBCATEGORIES = {
   subcategories: {
     where: { subcategory_id: null },
     orderBy: ORDER,
@@ -27,68 +33,87 @@ const withSubcategories = {
   },
 };
 
-const slugFor = (name: string, exceptId?: string) =>
-  uniqueSlug(name, (slug) =>
-    prisma.category.count({ where: { slug, ...(exceptId ? { NOT: { id: exceptId } } : {}) } })
+/** A URL slug from the name that no other category uses. */
+const makeSlug = (name: string, exceptId?: string) =>
+  uniqueSlug(name, (slug) => prisma.category.count({ where: { slug, ...notId(exceptId) } }));
+
+// ---------------------------------------------------------------- read
+
+/** Paged list. Shoppers only see published categories; staff see all. Sort: name_en, position, createdAt. */
+const getAll = async (pagination: IPagination, includeUnpublished: boolean) => {
+  const where: Prisma.CategoryWhereInput = {};
+  if (!includeUnpublished) where.is_published = true;
+  const orderBy = sortBy<Prisma.CategoryOrderByWithRelationInput | typeof ORDER>(
+    pagination,
+    ["name_en", "position", "createdAt"],
+    ORDER
   );
 
-/** Shoppers only see published categories; staff see all. */
-const getAll = async (p: IPagination, includeUnpublished: boolean) => {
-  const where: Prisma.CategoryWhereInput = includeUnpublished ? {} : { is_published: true };
-  const [data, total] = await prisma.$transaction([
-    prisma.category.findMany({
-      where,
-      include: withSubcategories,
-      orderBy: ORDER,
-      skip: p.skip,
-      take: p.limit,
-    }),
-    prisma.category.count({ where }),
-  ]);
-  return { meta: paginationHelpers.buildMeta(p, total), data };
+  const result = await paginate(pagination, {
+    findMany: (page) => prisma.category.findMany({ where, include: WITH_SUBCATEGORIES, orderBy, ...page }),
+    count: () => prisma.category.count({ where }),
+  });
+  return { meta: result.meta, data: result.data };
 };
 
-/** Storefront navbar / home: every published category with its sub-categories (no paging). */
+/** Storefront navbar / home: every published category with sub-categories (no paging). */
 const getPublished = async () => {
   const data = await prisma.category.findMany({
     where: { is_published: true },
-    include: withSubcategories,
+    include: WITH_SUBCATEGORIES,
     orderBy: ORDER,
   });
-  return { meta: { page: 1, limit: data.length, total: data.length, totalPage: 1 }, data };
+  const meta = { page: 1, limit: data.length, total: data.length, totalPage: 1 };
+  return { meta, data };
 };
 
-/** By id or slug (the admin's update page is /update-category/[slug]). */
+/** One category by id or slug (the admin's update page uses the slug). */
 const getOne = async (idOrSlug: string) => {
-  const category = await prisma.category.findFirst({
+  const result = await prisma.category.findFirst({
     where: { OR: [{ id: idOrSlug }, { slug: idOrSlug }] },
-    include: withSubcategories,
+    include: WITH_SUBCATEGORIES,
   });
-  if (!category) throw notFound("Category");
-  return category;
+  if (!result) throw notFound("Category");
+  return result;
 };
 
-const create = async (body: Record<string, unknown>) => {
+// ---------------------------------------------------------------- write
+
+const create = async (body: Record<string, unknown>): Promise<Category> => {
   const data = pick(body, FIELDS) as Prisma.CategoryCreateInput;
-  return prisma.category.create({ data: { ...data, slug: await slugFor(data.name_en) } });
+  const slug = await makeSlug(data.name_en);
+  const result = await prisma.category.create({ data: { ...data, slug } });
+  return result;
 };
 
-const update = async (id: string, body: Record<string, unknown>) => {
+const update = async (id: string, body: Record<string, unknown>): Promise<Category> => {
   const current = await prisma.category.findUnique({ where: { id } });
   if (!current) throw notFound("Category");
   const data = pick(body, FIELDS) as Prisma.CategoryUpdateInput;
-  if (data.name_en && data.name_en !== current.name_en) data.slug = await slugFor(String(data.name_en), id);
-  return prisma.category.update({ where: { id }, data });
+
+  // Renamed → new slug.
+  if (data.name_en && data.name_en !== current.name_en) {
+    data.slug = await makeSlug(String(data.name_en), id);
+  }
+
+  const result = await prisma.category.update({ where: { id }, data });
+  return result;
 };
 
-const remove = async (id: string) => {
-  const [subs, products] = await Promise.all([
-    prisma.subCategory.count({ where: { category_id: id } }),
-    prisma.product.count({ where: { category_id: id, is_deleted: false } }),
-  ]);
-  if (products) throw badRequest(`This category has ${products} product(s). Move or delete them first.`);
-  if (subs) throw badRequest(`This category has ${subs} sub-categories. Delete them first.`);
-  return prisma.category.delete({ where: { id } });
+/** Only empty categories (no products, no sub-categories) can be deleted. */
+const remove = async (id: string): Promise<Category> => {
+  const productCount = await prisma.product.count({ where: { category_id: id, is_deleted: false } });
+  if (productCount) {
+    throw badRequest(`This category has ${productCount} product(s). Move or delete them first.`);
+  }
+
+  const subcategoryCount = await prisma.subCategory.count({ where: { category_id: id } });
+  if (subcategoryCount) {
+    throw badRequest(`This category has ${subcategoryCount} sub-categories. Delete them first.`);
+  }
+
+  const result = await prisma.category.delete({ where: { id } });
+  return result;
 };
 
 export const CategoryService = { getAll, getPublished, getOne, create, update, remove };

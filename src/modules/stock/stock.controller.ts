@@ -6,6 +6,7 @@ import { auditLog } from "@/helpers/auditLogger";
 import { paginationHelpers } from "@/helpers/paginationHelper";
 import { queryString } from "@/helpers/queryHelper";
 import { StockService } from "./stock.service";
+import { StockReportService } from "./stock.report.service";
 
 const getAvailability = catchAsync(async (req: Request, res: Response) => {
   const result = await StockService.getAvailability(req.params.productId, req.params.variantId);
@@ -53,7 +54,7 @@ const optionalNumber = (req: Request, ...keys: string[]) => {
 /** Check Outlet Stocks: variant rows + summary (GET /business-location/stock/all and …/stock/category/subcategory). */
 const getStockReport = catchAsync(async (req: Request, res: Response) => {
   const published = queryString(req, "isPublished");
-  const result = await StockService.getStockReport(paginationHelpers.calculatePagination(req, 20), {
+  const result = await StockReportService.getStockReport(paginationHelpers.calculatePagination(req, 20), {
     locationIds: listParam(req, "businessLocationIds") ?? listParam(req, "businessLocationId"),
     q: queryString(req, "q"),
     sku: queryString(req, "sku"),
@@ -75,7 +76,7 @@ const getStockReport = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getVariantReport = catchAsync(async (req: Request, res: Response) => {
-  const result = await StockService.getVariantReport(
+  const result = await StockReportService.getVariantReport(
     req.params.variantId,
     Number(req.query.stockMovementsLimit) || 20
   );

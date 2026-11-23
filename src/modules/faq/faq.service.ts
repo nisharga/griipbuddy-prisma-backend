@@ -1,19 +1,26 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/shared/prisma";
 import { notFound } from "@/errors/ApiError";
-import { paginationHelpers } from "@/helpers/paginationHelper";
-import { contains } from "@/helpers/queryHelper";
+import { NEWEST_FIRST, filterWhere, paginate, searchWhere, sortBy } from "@/helpers/queryBuilder";
 import type { IPagination } from "@/interfaces/pagination";
 
+/**
+ * Product FAQs. Shoppers ask questions (saved as "pending"); the admin answers
+ * them and sets them "active" so they show on the product page.
+ */
+
+/** The product fields shown next to a FAQ. */
 const PRODUCT_SUMMARY = { select: { id: true, name: true, slug: true, sku: true, thumbnail: true } };
 
-/** Live products only — FAQs can't be attached to deleted or unknown products. */
-const assertProduct = async (id: string) => {
+/** FAQs can only be attached to products that exist and aren't deleted. */
+const assertProductExists = async (id: string): Promise<void> => {
   const product = await prisma.product.findFirst({ where: { id, is_deleted: false }, select: { id: true } });
   if (!product) throw notFound("Product");
 };
 
-/** Storefront: answered, active FAQs of a published product. */
+// ---------------------------------------------------------------- storefront
+
+/** Active FAQs of a published product, newest first. */
 const getProductFaqs = async (slug: string) => {
   const faqs = await prisma.faq.findMany({
     where: { status: "active", product: { slug, is_deleted: false, is_published: true } },
@@ -22,9 +29,11 @@ const getProductFaqs = async (slug: string) => {
   return { faqs };
 };
 
+/** A shopper's question. Always starts as "pending" until the admin answers it. */
 const ask = async (body: { product: string; question: string; createdBy?: string; email?: string }) => {
-  await assertProduct(body.product);
-  return prisma.faq.create({
+  await assertProductExists(body.product);
+
+  const result = await prisma.faq.create({
     data: {
       product_id: body.product,
       question: body.question,
@@ -33,67 +42,72 @@ const ask = async (body: { product: string; question: string; createdBy?: string
       status: "pending",
     },
   });
+  return result;
 };
 
-const getAll = async (p: IPagination, search?: string, status?: string) => {
+// ---------------------------------------------------------------- admin
+
+/** All FAQs, newest first. Filter: status. Search: question, answer, product name. Sort: status, createdAt. */
+const getAll = async (pagination: IPagination, search?: string, status?: string) => {
   const where: Prisma.FaqWhereInput = {
-    ...(status ? { status } : {}),
-    ...(search
-      ? {
-          OR: [
-            { question: contains(search) },
-            { answer: contains(search) },
-            { product: { name: contains(search) } },
-          ],
-        }
-      : {}),
+    ...filterWhere<Prisma.FaqWhereInput>({ status }),
+    ...searchWhere<Prisma.FaqWhereInput>(search, ["question", "answer", "product.name"]),
   };
-  const [faqs, total] = await prisma.$transaction([
-    prisma.faq.findMany({
-      where,
-      include: { product: PRODUCT_SUMMARY },
-      orderBy: { createdAt: "desc" },
-      skip: p.skip,
-      take: p.limit,
-    }),
-    prisma.faq.count({ where }),
-  ]);
-  return { faqs, meta: paginationHelpers.buildMeta(p, total) };
+  const orderBy = sortBy(pagination, ["status", "createdAt"], NEWEST_FIRST);
+
+  const result = await paginate(pagination, {
+    findMany: (page) =>
+      prisma.faq.findMany({ where, include: { product: PRODUCT_SUMMARY }, orderBy, ...page }),
+    count: () => prisma.faq.count({ where }),
+  });
+  return { faqs: result.data, meta: result.meta };
 };
 
+/** One FAQ by id. */
 const getById = async (id: string) => {
-  const faq = await prisma.faq.findUnique({ where: { id }, include: { product: PRODUCT_SUMMARY } });
-  if (!faq) throw notFound("FAQ");
-  return faq;
+  const result = await prisma.faq.findUnique({ where: { id }, include: { product: PRODUCT_SUMMARY } });
+  if (!result) throw notFound("FAQ");
+  return result;
 };
 
+/** An FAQ written by the admin. The author name comes from the logged-in user. */
 const create = async (
   body: { product: string; question: string; answer?: string; status: string },
   userId?: string
 ) => {
-  await assertProduct(body.product);
-  const author = userId
-    ? await prisma.user.findUnique({ where: { id: userId }, select: { full_name: true } })
-    : null;
-  return prisma.faq.create({
+  await assertProductExists(body.product);
+
+  let authorName = "Admin";
+  if (userId) {
+    const author = await prisma.user.findUnique({ where: { id: userId }, select: { full_name: true } });
+    if (author) authorName = author.full_name;
+  }
+
+  const result = await prisma.faq.create({
     data: {
       product_id: body.product,
       question: body.question,
       answer: body.answer || null,
       status: body.status,
-      createdBy: author?.full_name ?? "Admin",
+      createdBy: authorName,
     },
     include: { product: PRODUCT_SUMMARY },
   });
+  return result;
 };
 
 const update = async (id: string, body: { question?: string; answer?: string; status?: string }) => {
-  await getById(id);
-  return prisma.faq.update({ where: { id }, data: body, include: { product: PRODUCT_SUMMARY } });
+  await getById(id); // 404 if it doesn't exist
+  const result = await prisma.faq.update({
+    where: { id },
+    data: body,
+    include: { product: PRODUCT_SUMMARY },
+  });
+  return result;
 };
 
-const remove = async (id: string) => {
-  await getById(id);
+const remove = async (id: string): Promise<void> => {
+  await getById(id); // 404 if it doesn't exist
   await prisma.faq.delete({ where: { id } });
 };
 

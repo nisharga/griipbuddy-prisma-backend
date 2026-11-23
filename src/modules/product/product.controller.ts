@@ -5,7 +5,8 @@ import sendResponse from "@/shared/sendResponse";
 import { auditLog } from "@/helpers/auditLogger";
 import { paginationHelpers } from "@/helpers/paginationHelper";
 import { queryString } from "@/helpers/queryHelper";
-import { ProductPublicService, ProductService } from "./product.service";
+import { ProductService } from "./product.service";
+import { ProductPublicService } from "./product.public.service";
 
 const ok = (res: Response, message: string, data?: unknown, statusCode: number = httpStatus.OK) =>
   sendResponse(res, { statusCode, success: true, message, data });
