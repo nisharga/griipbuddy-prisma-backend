@@ -53,6 +53,31 @@ export const staff = (key?: string | string[]): RequestHandler[] =>
   key ? [auth, requirePermission(key)] : [auth];
 
 /**
+ * Storefront customers only (phone + OTP login). Sets `req.user` with no
+ * permissions; staff tokens are refused here, like customer tokens are in `auth`.
+ */
+export const customer: RequestHandler = async (req, _res, next) => {
+  try {
+    const token = bearer(req);
+    if (!token) throw unauthorized();
+
+    const { id } = verifyAccessToken(token);
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, role: true, status: true, is_deleted: true },
+    });
+    if (!user || user.is_deleted) throw unauthorized("Your account no longer exists. Please log in again.");
+    if (user.role !== CUSTOMER_ROLE) throw forbidden("Please log in with your customer account.");
+    if (user.status !== "ACTIVE") throw forbidden("Your account is not active. Please contact us.");
+
+    req.user = { id: user.id, role: user.role, permissions: [], is_super: false };
+    next();
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
  * For endpoints shared by admin and storefront: true when a valid staff token is
  * present (e.g. to include unpublished items). Never throws.
  */

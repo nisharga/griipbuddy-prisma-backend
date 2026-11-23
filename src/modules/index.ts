@@ -1,4 +1,5 @@
 export * from "./user";
+export * from "./customer";
 export * from "./role";
 export * from "./permission";
 export * from "./upload";

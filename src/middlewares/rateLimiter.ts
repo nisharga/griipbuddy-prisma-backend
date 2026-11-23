@@ -40,6 +40,8 @@ export const globalLimiter = make("global");
 export const authLimiter = make("auth");
 /** Public order placement and payment-proof uploads. */
 export const orderLimiter = make("order");
+/** Customer login codes (SMS). */
+export const otpLimiter = make("otp");
 /** Storefront product questions. */
 export const faqLimiter = make("faq");
 /** Storefront reviews and helpful votes. */

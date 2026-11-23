@@ -4,6 +4,7 @@ import config from "@/config";
 import { prisma, type Db } from "@/shared/prisma";
 import { badRequest, conflict, notFound } from "@/errors/ApiError";
 import { contains, dateRange, money } from "@/helpers/queryHelper";
+import { toLocalPhone } from "@/helpers/phoneHelper";
 import { filterWhere, paginate, sortBy } from "@/helpers/queryBuilder";
 import type { IPagination } from "@/interfaces/pagination";
 import { StockService } from "@/modules/stock/stock.service";
@@ -170,7 +171,9 @@ const placeOrder = async (body: PlaceOrderInput) => {
   }
 
   const customerName = String(body.customer_name ?? "").trim();
-  const customerPhone = String(body.customer_phone ?? "").replace(/[^\d+]/g, "");
+  // Saved as 01XXXXXXXXX when it's a Bangladeshi mobile, so the customer's login finds it.
+  const typedPhone = String(body.customer_phone ?? "").replace(/[^\d+]/g, "");
+  const customerPhone = toLocalPhone(typedPhone) ?? typedPhone;
   if (!customerName) throw badRequest("Customer name is required.");
   if (customerPhone.replace(/\D/g, "").length < 11) throw badRequest("Please enter a valid phone number.");
   if (!String(body.delivery_address?.address ?? "").trim()) throw badRequest("Delivery address is required.");

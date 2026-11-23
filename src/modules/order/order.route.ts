@@ -1,5 +1,6 @@
 import express from "express";
-import { staff } from "@/middlewares/auth";
+import { customer, staff } from "@/middlewares/auth";
+import { CustomerController } from "@/modules/customer/customer.controller";
 import { orderLimiter } from "@/middlewares/rateLimiter";
 import validateRequest from "@/middlewares/validateRequest";
 import { OrderController } from "./order.controller";
@@ -11,6 +12,8 @@ const router = express.Router();
 router.post("/", orderLimiter, validateRequest(OrderValidation.placeOrderSchema), OrderController.placeOrder);
 router.get("/track-by-sl/:ref", OrderController.trackOrder);
 router.get("/customer/check-delivery-charge-required/:phone", OrderController.checkDeliveryChargeRequired);
+// Logged-in customer's orders (same as GET /customer/orders; the storefront profile page calls this path).
+router.get("/customer/my-order", customer, CustomerController.getMyOrders);
 
 // ---------------------------------------------------------------- admin
 router.get("/", ...staff("order.view"), OrderController.getOrders);

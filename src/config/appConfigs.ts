@@ -24,6 +24,18 @@ export const UPLOAD_LIMITS_MB = {
 /** Files bigger than this are sent to Cloudinary in chunks (required for large videos). */
 export const CLOUDINARY_CHUNK_SIZE = 20 * 1024 * 1024;
 
+/** Customer phone + OTP login. */
+export const OTP = {
+  length: 6,
+  expiresInSeconds: 5 * 60,
+  /** Wait this long before asking for another code. */
+  resendAfterSeconds: 60,
+  /** Codes one phone number can request per hour. */
+  maxPerHour: 5,
+  /** Wrong guesses before a code stops working. */
+  maxAttempts: 5,
+} as const;
+
 const MINUTE = 60_000;
 
 /** Rate limits per client IP: `limit` requests per `windowMs`. */
@@ -34,6 +46,11 @@ export const RATE_LIMITS = {
     windowMs: 10 * MINUTE,
     limit: 20,
     message: "Too many orders from this network. Please try again later.",
+  },
+  otp: {
+    windowMs: 10 * MINUTE,
+    limit: 10,
+    message: "Too many code requests from this network. Please try again later.",
   },
   faq: {
     windowMs: 10 * MINUTE,

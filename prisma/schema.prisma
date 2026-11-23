@@ -543,6 +543,23 @@ model StockAdjustmentItem {
 
 // ----------------------------------------------------------------- orders
 
+/// One-time login codes for customers (phone + OTP login). Only the hash is stored.
+model OtpCode {
+  id         String    @id @default(cuid())
+  /// Local format: 01XXXXXXXXX
+  phone      String
+  code_hash  String
+  expires_at DateTime
+  /// Wrong guesses so far.
+  attempts   Int       @default(0)
+  /// Set when used, or when a newer code replaces it.
+  used_at    DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([phone, createdAt])
+  @@map("otp_codes")
+}
+
 model Order {
   id                               String      @id @default(cuid())
   /// Human order number (starts at 1001 — see migration).

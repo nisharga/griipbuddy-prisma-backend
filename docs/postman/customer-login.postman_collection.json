@@ -1,0 +1,129 @@
+{
+  "info": {
+    "name": "GriipBuddy — Customer OTP login",
+    "description": "Run 1 → 2 in order. Step 1 saves the dev OTP, step 2 saves the tokens; the rest use them automatically.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5007/api/v1" },
+    { "key": "phone", "value": "01712345678" },
+    { "key": "otp", "value": "" },
+    { "key": "accessToken", "value": "" },
+    { "key": "refreshToken", "value": "" },
+    { "key": "orderId", "value": "" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "1. Send OTP",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const data = pm.response.json().data || {};",
+              "if (data.dev_otp) pm.collectionVariables.set('otp', data.dev_otp);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/customer/otp/send",
+        "body": { "mode": "raw", "raw": "{\n  \"phone_number\": \"{{phone}}\"\n}" }
+      }
+    },
+    {
+      "name": "2. Verify OTP (login)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const data = pm.response.json().data || {};",
+              "if (data.access_token) {",
+              "  pm.collectionVariables.set('accessToken', data.access_token);",
+              "  pm.collectionVariables.set('refreshToken', data.refresh_token);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/customer/otp/verify",
+        "body": { "mode": "raw", "raw": "{\n  \"phone_number\": \"{{phone}}\",\n  \"otp\": \"{{otp}}\"\n}" }
+      }
+    },
+    {
+      "name": "3. My profile",
+      "request": { "method": "GET", "url": "{{baseUrl}}/customer/me" }
+    },
+    {
+      "name": "4. Update profile",
+      "request": {
+        "method": "PATCH",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/customer/me",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"full_name\": \"Rahim Uddin\",\n  \"email\": \"rahim@example.com\",\n  \"address\": { \"address\": \"House 1, Road 2, Dhaka\" }\n}"
+        }
+      }
+    },
+    {
+      "name": "5. My orders",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const first = (pm.response.json().data?.data || [])[0];",
+              "if (first) pm.collectionVariables.set('orderId', first.id);"
+            ]
+          }
+        }
+      ],
+      "request": { "method": "GET", "url": "{{baseUrl}}/order/customer/my-order?page=1&limit=10" }
+    },
+    {
+      "name": "6. One order",
+      "request": { "method": "GET", "url": "{{baseUrl}}/customer/orders/{{orderId}}" }
+    },
+    {
+      "name": "7. Refresh token",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const data = pm.response.json().data || {};",
+              "if (data.access_token) {",
+              "  pm.collectionVariables.set('accessToken', data.access_token);",
+              "  pm.collectionVariables.set('refreshToken', data.refresh_token);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/customer/refresh-token",
+        "body": { "mode": "raw", "raw": "{\n  \"refresh_token\": \"{{refreshToken}}\"\n}" }
+      }
+    }
+  ]
+}

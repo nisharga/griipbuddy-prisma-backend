@@ -7,6 +7,7 @@ import {
   BusinessLocationRoutes,
   CategoryRoutes,
   CmsRoutes,
+  CustomerRoutes,
   FaqRoutes,
   OrderRoutes,
   PermissionRoutes,
@@ -46,6 +47,7 @@ router.get("/health", async (_req, res) => {
  */
 const moduleRoutes: { path: string; route: Router }[] = [
   { path: "/user", route: UserRoutes },
+  { path: "/customer", route: CustomerRoutes },
   { path: "/roles", route: RoleRoutes },
   { path: "/permissions", route: PermissionRoutes },
   { path: "/upload", route: UploadRoutes },
