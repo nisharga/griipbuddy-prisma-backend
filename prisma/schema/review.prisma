@@ -1,0 +1,50 @@
+// Product Q&A and customer reviews.
+
+/// Product Q&A. Customers ask on the storefront (status "pending"); staff answer and
+/// set "active" to show it on the product page.
+model Faq {
+  id         String   @id @default(cuid())
+  product_id String
+  question   String
+  answer     String?
+  status     String   @default("pending") // active | inactive | pending
+  createdBy  String?
+  email      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  product Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@index([product_id, status])
+  @@index([createdAt])
+  @@map("faqs")
+}
+
+model Review {
+  id                String    @id @default(cuid())
+  product_id        String
+  order_id          String?
+  /// Shown as the reviewer's name (copied from the order).
+  customer_name     String
+  rating            Int
+  title             String?
+  content           String
+  /// [{ type: image|video, url, altText }]
+  media             Json      @default("[]")
+  status            String    @default("pending") // pending | approved | rejected
+  verified_purchase Boolean   @default(false)
+  upvotes           Int       @default(0)
+  downvotes         Int       @default(0)
+  seller_reply      String?
+  replied_at        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  product Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  order   Order?  @relation(fields: [order_id], references: [id], onDelete: SetNull)
+
+  @@unique([order_id, product_id])
+  @@index([product_id, status])
+  @@index([createdAt])
+  @@map("reviews")
+}

@@ -8,7 +8,7 @@ const lintStagedConfig = {
   "*.{js,mjs,cjs,json,md,yml,yaml}": ["prettier --write"],
 
   // Prisma schema formatter (aligns columns, sorts attributes).
-  "prisma/schema.prisma": [() => "prisma format"],
+  "prisma/schema/*.prisma": [() => "prisma format"],
 };
 
 export default lintStagedConfig;

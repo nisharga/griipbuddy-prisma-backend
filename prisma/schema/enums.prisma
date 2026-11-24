@@ -1,0 +1,63 @@
+// Shared enums: used by models in several files.
+
+enum UserType {
+  STAFF
+  CUSTOMER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  BANNED
+  PENDING
+  DELETED
+}
+
+enum LocationType {
+  OUTLET
+  WAREHOUSE
+}
+
+enum AdjustmentAction {
+  ADDITION
+  DEDUCTION
+}
+
+enum OrderStatus {
+  INCOMPLETE
+  PLACED
+  IN_REVIEW
+  HANDED_OVER_TO_COURIER
+  IN_TRANSIT
+  DELIVERED
+  RETURN_REQUESTED
+  RETURNED
+  CANCELLED
+  FAILED
+  NO_RESPONSE
+  PARTIAL
+  PENDING_RETURN
+  PRE_ORDER
+  PROCESSING
+  AWAITING_STOCK
+  ACCEPTED
+}
+
+enum PaymentType {
+  CASH_ON_DELIVERY
+  DELIVERY_CHARGE
+  FULL_PAYMENT
+}
+
+enum OrderBy {
+  GUEST
+  USER
+  ADMIN
+}
+
+/// Where an order's stock stands: held for it, shipped out, or back on the shelf.
+enum StockState {
+  RESERVED
+  DEDUCTED
+  RELEASED
+}

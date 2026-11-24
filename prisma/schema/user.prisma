@@ -1,0 +1,87 @@
+// Staff, customers, roles, login codes and the audit trail.
+
+model Role {
+  id            String   @id @default(cuid())
+  role_name     String   @unique
+  permissions   String[]
+  created_by_id String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  users User[]
+
+  @@map("roles")
+}
+
+model User {
+  id                 String     @id @default(cuid())
+  full_name          String
+  /// Login id. Freed on soft delete (suffixed) so the number can be reused.
+  phone_number       String     @unique
+  email              String?
+  password           String
+  /// Role name, e.g. "SUPER_ADMIN"; "USER" for shoppers.
+  role               String
+  role_ref_id        String?
+  permissions        String[]
+  outlet_id          String?
+  gender             String?
+  profile_url        String?
+  date_of_birth      String?
+  address            Json?
+  userType           UserType   @default(STAFF)
+  status             UserStatus @default(ACTIVE)
+  is_verified_number Boolean    @default(true)
+  is_deleted         Boolean    @default(false)
+  last_active        DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  role_ref Role?             @relation(fields: [role_ref_id], references: [id], onDelete: SetNull)
+  outlet   BusinessLocation? @relation(fields: [outlet_id], references: [id], onDelete: SetNull)
+
+  orders               Order[]
+  order_status_changes OrderStatusHistory[]
+  order_logs           OrderLog[]
+  order_notes          OrderNote[]
+  stock_adjustments    StockAdjustment[]
+
+  purchases_created  Purchase[] @relation("PurchaseCreatedBy")
+  purchases_received Purchase[] @relation("PurchaseReceivedBy")
+
+  @@index([role])
+  @@index([is_deleted])
+  @@map("users")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actor_id  String?
+  action    String
+  entity    String
+  entity_id String?
+  meta      Json?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entity_id])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+/// One-time login codes for customers (phone + OTP login). Only the hash is stored.
+model OtpCode {
+  id         String    @id @default(cuid())
+  /// Local format: 01XXXXXXXXX
+  phone      String
+  code_hash  String
+  expires_at DateTime
+  /// Wrong guesses so far.
+  attempts   Int       @default(0)
+  /// Set when used, or when a newer code replaces it.
+  used_at    DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([phone, createdAt])
+  @@map("otp_codes")
+}

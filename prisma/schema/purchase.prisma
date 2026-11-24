@@ -1,0 +1,77 @@
+// Buying stock from suppliers.
+
+model Supplier {
+  id                    String   @id @default(cuid())
+  name                  String
+  contact_id            String   @unique
+  address               String
+  email                 String?
+  phone                 String
+  default_payment_terms String   @default("CASH ON DELIVERY")
+  tax_info              String?
+  notes                 String?
+  type                  String   @default("COMPANY")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  purchases Purchase[]
+
+  @@map("suppliers")
+}
+
+model Purchase {
+  id                   String    @id @default(cuid())
+  /// Human purchase number (1, 2, 3 …).
+  purchase_number      Int       @unique @default(autoincrement())
+  business_location_id String
+  supplier_id          String
+  status               String    @default("received") // draft | ordered | received | cancelled
+  purchase_date        DateTime  @default(now())
+  /// Sum of item lines (qty × unit_cost − discount).
+  items_total          Decimal   @default(0) @db.Decimal(12, 2)
+  expenses_total       Decimal   @default(0) @db.Decimal(12, 2)
+  total_cost           Decimal   @default(0) @db.Decimal(12, 2)
+  /// [{ type, amount, note }]
+  expenses_applied     Json      @default("[]")
+  attachments          String[]
+  additional_notes     String?
+  /// True while the items have been added to stock (status "received").
+  stock_applied        Boolean   @default(false)
+  created_by_id        String?
+  received_by_id       String?
+  received_at          DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  business_location BusinessLocation @relation(fields: [business_location_id], references: [id], onDelete: Restrict)
+  supplier          Supplier         @relation(fields: [supplier_id], references: [id], onDelete: Restrict)
+  created_by        User?            @relation("PurchaseCreatedBy", fields: [created_by_id], references: [id], onDelete: SetNull)
+  received_by       User?            @relation("PurchaseReceivedBy", fields: [received_by_id], references: [id], onDelete: SetNull)
+  items             PurchaseItem[]
+
+  @@index([supplier_id])
+  @@index([business_location_id])
+  @@index([status])
+  @@index([purchase_date])
+  @@map("purchases")
+}
+
+model PurchaseItem {
+  id          String  @id @default(cuid())
+  purchase_id String
+  product_id  String
+  variant_id  String
+  qty         Int
+  unit_cost   Decimal @db.Decimal(12, 2)
+  /// Discount on the whole line, not per unit.
+  discount    Decimal @default(0) @db.Decimal(12, 2)
+  line_total  Decimal @db.Decimal(12, 2)
+
+  purchase Purchase       @relation(fields: [purchase_id], references: [id], onDelete: Cascade)
+  product  Product        @relation(fields: [product_id], references: [id], onDelete: Restrict)
+  variant  ProductVariant @relation(fields: [variant_id], references: [id], onDelete: Restrict)
+
+  @@index([purchase_id])
+  @@index([variant_id])
+  @@map("purchase_items")
+}

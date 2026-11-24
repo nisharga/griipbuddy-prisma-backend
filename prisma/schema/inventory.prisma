@@ -1,0 +1,84 @@
+// Shops/warehouses and the stock in each.
+
+model BusinessLocation {
+  id              String       @id @default(cuid())
+  name            String
+  slug            String       @unique
+  type            LocationType
+  address         Json
+  location        Json?
+  manager_name    String?
+  contact_numbers String[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  staff          User[]
+  stocks         Stock[]
+  adjustments    StockAdjustment[]
+  assignedOrders Order[]
+
+  purchases Purchase[]
+
+  @@map("business_locations")
+}
+
+/// One row per variant × location. available = sellable; reserved = held by
+/// placed-but-unshipped orders. On hand = available + reserved.
+model Stock {
+  id                   String   @id @default(cuid())
+  product_id           String
+  variant_id           String
+  business_location_id String
+  available_quantity   Int      @default(0)
+  reserved_quantity    Int      @default(0)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  product           Product          @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  variant           ProductVariant   @relation(fields: [variant_id], references: [id], onDelete: Cascade)
+  business_location BusinessLocation @relation(fields: [business_location_id], references: [id], onDelete: Restrict)
+
+  @@unique([variant_id, business_location_id])
+  @@index([product_id])
+  @@index([business_location_id])
+  @@map("stocks")
+}
+
+model StockAdjustment {
+  id                   String           @id @default(cuid())
+  business_location_id String
+  action               AdjustmentAction
+  note                 String?
+  adjust_by_id         String?
+  activities_date      DateTime         @default(now())
+  /// Total units adjusted.
+  total_amount         Int              @default(0)
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  business_location BusinessLocation      @relation(fields: [business_location_id], references: [id], onDelete: Restrict)
+  adjust_by         User?                 @relation(fields: [adjust_by_id], references: [id], onDelete: SetNull)
+  products          StockAdjustmentItem[]
+
+  @@index([createdAt])
+  @@map("stock_adjustments")
+}
+
+model StockAdjustmentItem {
+  id                  String  @id @default(cuid())
+  stock_adjustment_id String
+  stock_id            String
+  product_id          String
+  variant_id          String
+  selected_variant    Json?
+  quantity            Int
+  old_quantity        Int
+  new_quantity        Int
+  product_note        String?
+
+  stock_adjustment StockAdjustment @relation(fields: [stock_adjustment_id], references: [id], onDelete: Cascade)
+
+  @@index([stock_adjustment_id])
+  @@index([product_id])
+  @@map("stock_adjustment_items")
+}

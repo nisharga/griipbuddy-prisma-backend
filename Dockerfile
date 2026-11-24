@@ -4,10 +4,10 @@
 FROM node:20-alpine AS build
 WORKDIR /app
 RUN apk add --no-cache openssl
-COPY package*.json ./
+COPY package*.json prisma.config.ts ./
 COPY prisma ./prisma
 RUN npm ci
-COPY tsconfig*.json prisma.config.ts ./
+COPY tsconfig*.json ./
 COPY src ./src
 RUN npm run build && npm prune --omit=dev
 

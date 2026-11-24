@@ -1,0 +1,178 @@
+// What we sell: categories, brands, return policies, products and their variants.
+
+model Category {
+  id             String   @id @default(cuid())
+  name_en        String
+  name_bn        String?
+  description_en String?
+  description_bn String?
+  image_url      String?
+  /// [{ size: SQUARE|HORIZONTAL|VERTICAL, image, video }]
+  media          Json     @default("[]")
+  position       Int      @default(1)
+  slug           String   @unique
+  is_published   Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  /// Includes sub-sub-categories too; filter `subcategory_id: null` for direct children.
+  subcategories SubCategory[]
+  products      Product[]
+
+  @@map("categories")
+}
+
+/// Two levels in one table: a sub-category has `subcategory_id = null`;
+/// a sub-sub-category points at its parent sub-category.
+model SubCategory {
+  id             String   @id @default(cuid())
+  name_en        String
+  name_bn        String?
+  description_en String?
+  description_bn String?
+  image_url      String?
+  media          Json     @default("[]")
+  position       Int      @default(1)
+  slug           String   @unique
+  category_id    String
+  subcategory_id String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  category          Category      @relation(fields: [category_id], references: [id], onDelete: Restrict)
+  subcategory       SubCategory?  @relation("SubCategoryTree", fields: [subcategory_id], references: [id], onDelete: Restrict)
+  sub_subcategories SubCategory[] @relation("SubCategoryTree")
+
+  products_as_sub    Product[] @relation("ProductSubcategory")
+  products_as_subsub Product[] @relation("ProductSubSubcategory")
+
+  @@index([category_id])
+  @@index([subcategory_id])
+  @@map("sub_categories")
+}
+
+model Brand {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  tags      String[]
+  is_active Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products Product[]
+
+  @@map("brands")
+}
+
+model ReturnPolicy {
+  id                 String   @id @default(cuid())
+  title              String
+  slug               String   @unique
+  description        String
+  return_period_days Int
+  conditions         String[]
+  is_active          Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  products Product[]
+
+  @@map("return_policies")
+}
+
+model Product {
+  id                          String   @id @default(cuid())
+  name                        String
+  /// Freed on delete (suffixed) so it can be reused.
+  slug                        String   @unique
+  description                 String   @default("")
+  sku                         String   @unique
+  product_type                String   @default("SIMPLE")
+  is_pre_order                Boolean  @default(false)
+  sale_channels               Json     @default("{\"pos\":true,\"website\":true}")
+  thumbnail                   String?
+  slider_images               String[]
+  short_videos                Json     @default("[]")
+  min_order_qty               Int      @default(1)
+  max_order_qty               Int?
+  total_sold                  Int      @default(0)
+  attributes                  String[]
+  approximately_delivery_time String   @default("4 to 5 days")
+  is_free_delivery            Boolean  @default(false)
+  coin_per_order              Int      @default(0)
+  shipping_cost               Decimal  @default(0) @db.Decimal(12, 2)
+  /// Lowest variant sale price — kept in sync by the product service (for price sort/filter).
+  min_price                   Decimal  @default(0) @db.Decimal(12, 2)
+  shipping_cost_per_unit      Decimal  @default(0) @db.Decimal(12, 2)
+  warranty                    String?
+  ratings                     Json     @default("{\"average\":0,\"total\":0}")
+  search_tags                 String[]
+  offer_tags                  String[]
+  highlight_labels            String[]
+  social_links                Json?
+  dynamic_specs               Json?
+  product_specifications      Json?
+  product_card_properties     Json?
+  /// Required for live products (the API enforces it); cleared if the category is deleted later.
+  category_id                 String?
+  subcategory_id              String?
+  sub_subcategory_id          String?
+  brand_id                    String?
+  return_policy_id            String?
+  is_published                Boolean  @default(true)
+  is_deleted                  Boolean  @default(false)
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+
+  category        Category?     @relation(fields: [category_id], references: [id], onDelete: SetNull)
+  subcategory     SubCategory?  @relation("ProductSubcategory", fields: [subcategory_id], references: [id], onDelete: SetNull)
+  sub_subcategory SubCategory?  @relation("ProductSubSubcategory", fields: [sub_subcategory_id], references: [id], onDelete: SetNull)
+  brand           Brand?        @relation(fields: [brand_id], references: [id], onDelete: SetNull)
+  return_policy   ReturnPolicy? @relation(fields: [return_policy_id], references: [id], onDelete: SetNull)
+
+  variants   ProductVariant[]
+  stocks     Stock[]
+  orderItems OrderItem[]
+  faqs       Faq[]
+  reviews    Review[]
+
+  purchaseItems PurchaseItem[]
+
+  @@index([category_id])
+  @@index([subcategory_id])
+  @@index([is_deleted, is_published])
+  @@index([min_price])
+  @@index([total_sold])
+  @@map("products")
+}
+
+model ProductVariant {
+  id               String   @id @default(cuid())
+  product_id       String
+  attributes       String[]
+  /// e.g. { "Size": "42", "Color": "Black" }
+  attribute_values Json     @default("{}")
+  regular_price    Decimal  @default(0) @db.Decimal(12, 2)
+  sale_price       Decimal  @default(0) @db.Decimal(12, 2)
+  sku              String   @unique
+  barcode          String   @unique
+  discount_type    String   @default("FLAT")
+  discount_value   Decimal  @default(0) @db.Decimal(12, 2)
+  color_code       String?
+  image            String?
+  images           String[]
+  videos           String[]
+  image_based_on   String?
+  serial           Int      @default(1)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  product Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  stocks  Stock[]
+
+  purchaseItems PurchaseItem[]
+
+  @@index([product_id])
+  @@map("product_variants")
+}

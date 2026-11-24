@@ -1,0 +1,20 @@
+// GriipBuddy e-commerce database — one file per area, all in this folder:
+//   enums · user · catalog · review · purchase · inventory · order · cms
+// Models in any file can use enums and models from the others.
+//
+// Conventions (they keep the API identical to the original MongoDB backend):
+//   • Field names are the API's names (snake_case), so no mapping layer is needed.
+//   • Every foreign key is `<relation>_id`, next to a relation called `<relation>`.
+//     The response serializer exposes it as `<relation>`: the object when it was
+//     included in the query, otherwise the plain id (like Mongo's populate).
+//   • Money is Decimal(12,2). Quantities are Int with CHECK (>= 0) constraints
+//     added in the migration SQL.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}

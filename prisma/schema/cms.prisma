@@ -1,0 +1,16 @@
+// Storefront content edited in the admin.
+
+/// Home page hero: a few videos (with a fallback image), shown in `position` order.
+model HeroSlide {
+  id            String   @id @default(cuid())
+  title         String   @default("")
+  video_url     String // short path, e.g. "uploads/<id>.mp4"
+  thumbnail_url String? // fallback image while the video loads
+  position      Int      @default(0)
+  button        Json? // { enabled, text, redirect_route }
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([position])
+  @@map("hero_slides")
+}

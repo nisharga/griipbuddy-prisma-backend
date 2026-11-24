@@ -6,6 +6,7 @@ import path from "node:path";
 import { defineConfig } from "prisma/config";
 
 export default defineConfig({
-  schema: path.join("prisma", "schema.prisma"),
-  migrations: { seed: "tsx prisma/seed.ts" },
+  // Every .prisma file in this folder is one schema (main.prisma has the database settings).
+  schema: path.join("prisma", "schema"),
+  migrations: { path: path.join("prisma", "migrations"), seed: "tsx prisma/seed.ts" },
 });
