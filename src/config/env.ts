@@ -57,7 +57,6 @@ const schema = z.object({
   CLOUDINARY_CLOUD_NAME: optional,
   CLOUDINARY_API_KEY: optional,
   CLOUDINARY_API_SECRET: optional,
-  CLOUDINARY_FOLDER: z.string().default("uploads"),
 
   SMS_API_KEY: optional,
   SMS_SENDER_ID: optional,
@@ -112,7 +111,6 @@ export const env = {
           cloudName: e.CLOUDINARY_CLOUD_NAME,
           apiKey: e.CLOUDINARY_API_KEY,
           apiSecret: e.CLOUDINARY_API_SECRET,
-          folder: e.CLOUDINARY_FOLDER.replace(/^\/+|\/+$/g, ""),
         }
       : undefined,
   s3:

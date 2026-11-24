@@ -159,15 +159,12 @@ const makeUploader = (baseDir: string) => {
       return undefined;
     }
     const ext = path.extname(abs).toLowerCase();
-    const url = await saveFile(
-      {
-        originalname: path.basename(abs),
-        mimetype: MIME[ext] ?? "application/octet-stream",
-        size: buffer.length,
-        buffer,
-      } as Express.Multer.File,
-      "images"
-    );
+    const url = await saveFile({
+      originalname: path.basename(abs),
+      mimetype: MIME[ext] ?? "application/octet-stream",
+      size: buffer.length,
+      buffer,
+    } as Express.Multer.File);
     stats.images++;
     cache.set(rel, url);
     return url;

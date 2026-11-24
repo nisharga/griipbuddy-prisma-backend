@@ -3,7 +3,8 @@ import { prisma } from "@/shared/prisma";
 /**
  * Storefront page content. Home sections are built from live data (published
  * categories, best sellers, newest products), so admin changes appear at once.
- * Banners, hero videos, top-bar messages and offers have no admin editor yet —
+ * Hero videos live in hero.service.ts.
+ * Banners, top-bar messages and offers have no admin editor yet —
  * they return empty data and the storefront hides those sections.
  */
 
@@ -69,9 +70,8 @@ const getHomepage = async () => {
 };
 
 // Not editable yet → empty (the storefront hides these sections).
-const getHeroSection = async () => [];
 const getBanners = async () => [];
 const getTopBarMessages = async () => [];
 const getOfferPage = async () => null;
 
-export const CmsService = { getHomepage, getHeroSection, getBanners, getTopBarMessages, getOfferPage };
+export const CmsService = { getHomepage, getBanners, getTopBarMessages, getOfferPage };

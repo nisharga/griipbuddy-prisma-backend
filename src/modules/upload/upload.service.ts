@@ -31,19 +31,19 @@ export const uploaders = {
   paymentProof: makeUploader(UPLOAD_LIMITS_MB.paymentProof, isImage, "image"),
 };
 
-/** Save one uploaded file → `{ url }`. */
-const uploadOne = async (file: Express.Multer.File | undefined, folder: string) => {
+/** Save one uploaded file → `{ url: "uploads/<id>.jpg" }`. */
+const uploadOne = async (file: Express.Multer.File | undefined) => {
   if (!file) throw badRequest("No file uploaded. Send it in the 'file' field.", "file");
 
-  const url = await saveFile(file, folder);
+  const url = await saveFile(file);
   return { url };
 };
 
-/** Save several uploaded files → `{ urls }`. */
-const uploadMany = async (files: Express.Multer.File[] | undefined, folder: string) => {
+/** Save several uploaded files → `{ urls: ["uploads/<id>.jpg", …] }`. */
+const uploadMany = async (files: Express.Multer.File[] | undefined) => {
   if (!files?.length) throw badRequest("No files uploaded. Send them in the 'files' field.", "files");
 
-  const urls = await Promise.all(files.map((file) => saveFile(file, folder)));
+  const urls = await Promise.all(files.map((file) => saveFile(file)));
   return { urls };
 };
 
