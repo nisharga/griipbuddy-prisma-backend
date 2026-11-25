@@ -389,6 +389,19 @@ swagger/
 - To explain an endpoint, add a line to `swagger/endpoints.ts` (`list: true` adds page/limit/search/sort).
 - On by default in development, off in production. `API_DOCS=true` turns it on anywhere.
 
+## Error tracking (Sentry)
+
+Set `SENTRY_DSN` (sentry.io → new project → Node.js / Express → copy the DSN) and restart. Sentry then emails
+you about, with the stack trace, URL and user id:
+
+- request errors that became a **500** (not normal 4xx like "not found" or wrong password)
+- background jobs that failed after all retries, and failed cron runs
+- crashes (uncaught exceptions, unhandled promise rejections) and startup failures
+
+Passwords, OTP codes, tokens, cookies, local variables and job data (SMS texts) are never sent — see
+`src/shared/sentry.ts`. To report an error yourself: `reportError(err, { tags: { feature: "checkout" } })`.
+Empty `SENTRY_DSN` (and every test run) = off.
+
 ## Background work
 
 - **Jobs** (`src/jobs`): customer SMS on order placed / shipped / delivered / cancelled. With Redis they

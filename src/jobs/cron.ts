@@ -1,6 +1,7 @@
 import cron, { type ScheduledTask } from "node-cron";
 import config from "@/config";
 import { logger } from "@/shared/logger";
+import { reportError } from "@/shared/sentry";
 import { prisma } from "@/shared/prisma";
 import { sendEmail } from "@/helpers/emailSender";
 
@@ -22,6 +23,7 @@ const withLock = async (name: string, lockKey: number, fn: () => Promise<void>) 
     logger.info({ job: name, ms: Date.now() - started }, "cron done");
   } catch (err) {
     logger.error({ job: name, err: (err as Error).message }, "cron failed");
+    reportError(err, { tags: { cron: name } });
   } finally {
     await prisma.$queryRaw`SELECT pg_advisory_unlock(${lockKey})`;
   }

@@ -1,6 +1,7 @@
 import { Queue, Worker } from "bullmq";
 import { redis } from "@/shared/redis";
 import { logger } from "@/shared/logger";
+import { reportError } from "@/shared/sentry";
 import { handlers, type JobData, type JobName } from "./handlers";
 
 /**
@@ -26,9 +27,10 @@ export const enqueue = async <N extends JobName>(name: N, data: JobData<N>): Pro
     return;
   }
   setImmediate(() => {
-    (handlers[name] as (d: JobData<N>) => Promise<void>)(data).catch((err) =>
-      logger.error({ job: name, err: (err as Error).message }, "inline job failed")
-    );
+    (handlers[name] as (d: JobData<N>) => Promise<void>)(data).catch((err) => {
+      logger.error({ job: name, err: (err as Error).message }, "inline job failed");
+      reportError(err, { tags: { job: name } });
+    });
   });
 };
 
@@ -44,7 +46,12 @@ export const startWorker = () => {
     },
     { connection: redis.duplicate({ maxRetriesPerRequest: null }), concurrency: 5 }
   );
-  worker.on("failed", (job, err) => logger.error({ job: job?.name, err: err.message }, "job failed"));
+  worker.on("failed", (job, err) => {
+    logger.error({ job: job?.name, err: err.message }, "job failed");
+    // Report once, when the last retry has failed too.
+    const retriesLeft = (job?.opts.attempts ?? 1) - (job?.attemptsMade ?? 0);
+    if (retriesLeft <= 0) reportError(err, { tags: { job: job?.name ?? "unknown" } });
+  });
   logger.info("job worker started");
 };
 

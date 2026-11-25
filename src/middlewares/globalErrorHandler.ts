@@ -7,6 +7,7 @@ import handlePrismaError from "@/errors/handlePrismaError";
 import handleZodError from "@/errors/handleZodError";
 import type { IGenericErrorResponse } from "@/interfaces/common";
 import { logger } from "@/shared/logger";
+import { reportError } from "@/shared/sentry";
 
 const one = (statusCode: number, message: string, path: string | number = ""): IGenericErrorResponse => ({
   statusCode,
@@ -29,7 +30,15 @@ const normalize = (error: unknown): IGenericErrorResponse => {
 
 const globalErrorHandler: ErrorRequestHandler = (error, req, res, _next) => {
   const { statusCode, message, errorMessages } = normalize(error);
-  if (statusCode >= 500) logger.error({ err: error, reqId: req.id, url: req.originalUrl }, "unhandled error");
+  if (statusCode >= 500) {
+    logger.error({ err: error, reqId: req.id, url: req.originalUrl }, "unhandled error");
+    // Only real server errors go to Sentry (not 4xx like "not found" or bad input).
+    reportError(error, {
+      tags: { method: req.method, route: req.route?.path ?? req.path },
+      extra: { reqId: req.id, url: req.originalUrl, body: req.body, query: req.query },
+      userId: req.user?.id,
+    });
+  }
   res.status(statusCode).json({
     statusCode,
     success: false,

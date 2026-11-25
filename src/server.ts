@@ -1,6 +1,8 @@
+import "./instrument"; // must stay first: starts error tracking (Sentry)
 import type { Server } from "http";
 import config from "@/config";
 import { logger } from "@/shared/logger";
+import { flushSentry, reportError } from "@/shared/sentry";
 import { prisma } from "@/shared/prisma";
 import { closeRedis } from "@/shared/redis";
 import { startWorker, stopJobs } from "@/jobs/queue";
@@ -51,6 +53,7 @@ const shutdown = async (signal: string, code = 0) => {
     await stopJobs();
     await closeRedis();
     await prisma.$disconnect();
+    await flushSentry(); // send any queued error reports before exiting
   } finally {
     process.exit(code);
   }
@@ -60,14 +63,18 @@ process.on("SIGTERM", () => void shutdown("SIGTERM"));
 process.on("SIGINT", () => void shutdown("SIGINT"));
 process.on("unhandledRejection", (reason) => {
   logger.fatal({ err: reason }, "unhandled promise rejection");
+  reportError(reason, { tags: { crash: "unhandledRejection" } });
   void shutdown("unhandledRejection", 1);
 });
 process.on("uncaughtException", (err) => {
   logger.fatal({ err }, "uncaught exception");
+  reportError(err, { tags: { crash: "uncaughtException" } });
   void shutdown("uncaughtException", 1);
 });
 
-main().catch((err) => {
+main().catch(async (err) => {
   logger.fatal({ err }, "failed to start");
+  reportError(err, { tags: { crash: "startup" } });
+  await flushSentry();
   process.exit(1);
 });

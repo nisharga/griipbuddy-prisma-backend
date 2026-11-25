@@ -32,6 +32,11 @@ const schema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   PORT: z.coerce.number().int().positive().default(5007),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
+  // Error tracking (optional). Empty SENTRY_DSN = off.
+  SENTRY_DSN: optional,
+  SENTRY_ENVIRONMENT: optional,
+  // Share of requests to trace for performance (0 = errors only, which fits the free plan).
+  SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(0),
   SERVER_BASE_URL: optional,
   // API docs at /docs: "true" / "false". Empty = on, except in production.
   API_DOCS: z.enum(["true", "false", ""]).optional(),
@@ -118,6 +123,14 @@ export const env = {
   isTest: e.NODE_ENV === "test",
   port: e.PORT,
   logLevel: e.NODE_ENV === "test" ? "silent" : e.LOG_LEVEL,
+  sentry:
+    e.SENTRY_DSN && e.NODE_ENV !== "test"
+      ? {
+          dsn: e.SENTRY_DSN,
+          environment: e.SENTRY_ENVIRONMENT ?? e.NODE_ENV,
+          tracesSampleRate: e.SENTRY_TRACES_SAMPLE_RATE,
+        }
+      : undefined,
   serverBaseUrl: (e.SERVER_BASE_URL ?? `http://localhost:${e.PORT}`).replace(/\/$/, ""),
   corsOrigins: e.CORS_ORIGINS,
   apiDocs: e.API_DOCS ? e.API_DOCS === "true" : e.NODE_ENV !== "production",
