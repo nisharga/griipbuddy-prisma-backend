@@ -47,14 +47,18 @@ export const auth: RequestHandler = async (req, _res, next) => {
   }
 };
 
-/** Requires ANY of the given permissions. Use after `auth`. */
-export const requirePermission =
-  (key: string | string[]): RequestHandler =>
-  (req, _res, next) => {
+/**
+ * Requires ANY of the given permissions. Use after `auth`.
+ * The key is also kept on the middleware (`.permission`) so the API docs can show it.
+ */
+export const requirePermission = (key: string | string[]) => {
+  const middleware: RequestHandler = (req, _res, next) => {
     if (!req.user) return next(unauthorized());
     if (!can(req.user, key)) return next(forbidden());
     next();
   };
+  return Object.assign(middleware, { permission: key });
+};
 
 /** `auth` + `requirePermission` in one. */
 export const staff = (key?: string | string[]): RequestHandler[] =>

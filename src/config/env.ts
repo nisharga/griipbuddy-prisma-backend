@@ -33,6 +33,8 @@ const schema = z.object({
   PORT: z.coerce.number().int().positive().default(5007),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
   SERVER_BASE_URL: optional,
+  // API docs at /docs: "true" / "false". Empty = on, except in production.
+  API_DOCS: z.enum(["true", "false", ""]).optional(),
   CORS_ORIGINS: csv,
   TRUST_PROXY: z.coerce.number().int().min(0).default(1),
 
@@ -118,6 +120,7 @@ export const env = {
   logLevel: e.NODE_ENV === "test" ? "silent" : e.LOG_LEVEL,
   serverBaseUrl: (e.SERVER_BASE_URL ?? `http://localhost:${e.PORT}`).replace(/\/$/, ""),
   corsOrigins: e.CORS_ORIGINS,
+  apiDocs: e.API_DOCS ? e.API_DOCS === "true" : e.NODE_ENV !== "production",
   trustProxy: e.TRUST_PROXY,
   databaseUrl: e.DATABASE_URL,
   redisUrl: e.REDIS_URL,

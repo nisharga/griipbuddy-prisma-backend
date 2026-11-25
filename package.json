@@ -1,7 +1,7 @@
 {
   "name": "griipbuddy-prisma-backend",
   "version": "1.0.0",
-  "description": "GriipBuddy e-commerce API — Express, TypeScript, Prisma, PostgreSQL",
+  "description": "GriipBuddy e-commerce API \u2014 Express, TypeScript, Prisma, PostgreSQL",
   "private": true,
   "main": "dist/server.js",
   "engines": {
@@ -24,7 +24,8 @@
     "db:reset": "prisma migrate reset",
     "postinstall": "prisma generate",
     "prepare": "husky",
-    "db:import": "tsx prisma/import-catalog.ts"
+    "db:import": "tsx prisma/import-catalog.ts",
+    "docs": "tsx swagger/generate.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1171.0",
@@ -51,6 +52,7 @@
     "prisma": "6.19.3",
     "rate-limit-redis": "^6.0.2",
     "slugify": "^1.6.9",
+    "swagger-ui-express": "5.0.1",
     "tsx": "^4.23.15",
     "zod": "4.6.7"
   },
@@ -66,6 +68,7 @@
     "@types/node": "^22.20.5",
     "@types/nodemailer": "^8.0.2",
     "@types/supertest": "^7.2.1",
+    "@types/swagger-ui-express": "4.1.8",
     "eslint": "^10.15.0",
     "eslint-config-prettier": "^10.1.8",
     "husky": "^9.1.7",
@@ -76,6 +79,7 @@
     "tsc-alias": "^1.9.10",
     "typescript": "5.9",
     "typescript-eslint": "^8.73.0",
-    "vitest": "^5.1.1"
+    "vitest": "^5.1.1",
+    "zod-to-json-schema": "3.25.2"
   }
 }

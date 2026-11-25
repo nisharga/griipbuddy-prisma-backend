@@ -45,7 +45,7 @@ router.get("/health", async (_req, res) => {
  * POST /order, /order/track-by-sl, /upload/payment-proof, /cms, /review, /faq.
  * Everything else requires a staff token + permission.
  */
-const moduleRoutes: { path: string; route: Router }[] = [
+export const moduleRoutes: { path: string; route: Router }[] = [
   { path: "/user", route: UserRoutes },
   { path: "/customer", route: CustomerRoutes },
   { path: "/roles", route: RoleRoutes },

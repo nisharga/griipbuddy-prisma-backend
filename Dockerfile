@@ -24,6 +24,8 @@ COPY --from=build --chown=app:app /app/dist ./dist
 COPY --from=build --chown=app:app /app/prisma ./prisma
 COPY --chown=app:app package.json prisma.config.ts ./
 COPY --chown=app:app src/views ./dist/views
+# API docs shown at /docs (only when API_DOCS=true in production).
+COPY --chown=app:app swagger/openapi.json ./swagger/openapi.json
 # `npm run db:seed` (first super admin) runs from source via tsx and needs the permission list.
 COPY --chown=app:app src/constants/permissions.ts ./src/constants/permissions.ts
 COPY --chown=app:app docker/entrypoint.sh ./entrypoint.sh

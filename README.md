@@ -41,6 +41,7 @@ Both also need `localhost:5007` allowed under `images.remotePatterns` in `next.c
 | `npm run db:deploy`                                      | Apply pending migrations (production)                                        |
 | `npm run db:seed`                                        | Idempotent seed                                                              |
 | `npm run db:studio`                                      | Browse the database                                                          |
+| `npm run docs`                                           | Regenerate the API docs (`swagger/openapi.json`)                             |
 
 ## Project layout
 
@@ -356,7 +357,8 @@ In Postman, use an admin token (**Authorization → Bearer Token**):
 | Update | `PATCH /api/v1/coupon/<id>` with body `{ "discount": 150 }`                                  |
 | Delete | `DELETE /api/v1/coupon/<id>`                                                                 |
 
-Before committing: `npm run lint && npm run type-check && npm test`. For a test, copy a small file such as
+Update the API docs with `npm run docs`; the new endpoints appear at http://localhost:5007/docs (add a
+summary in `swagger/endpoints.ts` if you like). Before committing: `npm run lint && npm run type-check && npm test`. For a test, copy a small file such as
 `tests/hero-section.test.ts`.
 
 ### Checklist
@@ -365,7 +367,27 @@ Before committing: `npm run lint && npm run type-check && npm test`. For a test,
 2. `src/modules/<name>/`: validation → service → controller → route → index
 3. Register it in `src/modules/index.ts` and `src/routes/index.ts`
 4. Add the permissions (backend + admin `PermissionEnum`)
-5. `npm run dev` → test in Postman
+5. `npm run docs` → test at `/docs` (or Postman)
+
+## API docs (Swagger)
+
+Open **http://localhost:5007/docs**: every endpoint with its body, query and path fields, who may call it
+(🌐 public · 🔒 staff + permission · 🔒 customer) and a **Try it out** button. Log in, copy `access_token`,
+click **Authorize** and paste it. The raw OpenAPI file is at `/docs.json` (import it into Postman, or generate
+a typed frontend client from it).
+
+```
+swagger/
+├─ build.ts        reads the real routes: path, method, Zod schema (validateRequest), auth/staff/customer
+├─ endpoints.ts    optional summaries and notes per endpoint, e.g. "POST /customer/otp/send"
+├─ generate.ts     `npm run docs` → writes openapi.json
+└─ openapi.json    the generated docs (committed; the server shows this file)
+```
+
+- New endpoints appear automatically — just run `npm run docs` after changing routes or schemas.
+  A test fails if `openapi.json` is out of date, so it can't be forgotten.
+- To explain an endpoint, add a line to `swagger/endpoints.ts` (`list: true` adds page/limit/search/sort).
+- On by default in development, off in production. `API_DOCS=true` turns it on anywhere.
 
 ## Background work
 

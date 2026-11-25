@@ -9,6 +9,7 @@ import { globalLimiter } from "@/middlewares/rateLimiter";
 import globalErrorHandler from "@/middlewares/globalErrorHandler";
 import notFound from "@/middlewares/notFound";
 import routes from "@/routes";
+import { mountApiDocs } from "@/shared/apiDocs";
 
 export const createApp = () => {
   const app = express();
@@ -36,6 +37,7 @@ export const createApp = () => {
     res.json({ statusCode: 200, success: true, message: `${APP_NAME} API is running.`, data: null });
   });
 
+  mountApiDocs(app); // Swagger UI at /docs (see swagger/)
   app.use(API_PREFIX, globalLimiter, routes);
 
   app.use(notFound);

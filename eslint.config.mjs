@@ -14,5 +14,6 @@ export default tseslint.config(
       "no-console": "error",
     },
   },
-  { files: ["prisma/**", "tests/**"], rules: { "no-console": "off" } }
+  // CLI scripts print to the terminal.
+  { files: ["prisma/**", "swagger/**", "tests/**"], rules: { "no-console": "off" } }
 );
