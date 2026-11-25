@@ -20,6 +20,11 @@ const refreshToken = catchAsync(async (req: Request, res: Response) => {
   ok(res, "Token refreshed.", await CustomerService.refresh(req.body.refresh_token));
 });
 
+const logout = catchAsync(async (req: Request, res: Response) => {
+  await CustomerService.logout(req.user!.id);
+  ok(res, "Logged out from all devices.", null);
+});
+
 const getMe = catchAsync(async (req: Request, res: Response) => {
   ok(res, "Profile fetched successfully.", await CustomerService.getMe(req.user!.id));
 });
@@ -48,6 +53,7 @@ const getMyOrder = catchAsync(async (req: Request, res: Response) => {
 });
 
 export const CustomerController = {
+  logout,
   sendOtp,
   verifyOtp,
   refreshToken,

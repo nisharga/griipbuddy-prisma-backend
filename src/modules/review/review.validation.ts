@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod/v3";
 
 export const REVIEW_STATUSES = ["pending", "approved", "rejected"] as const;
 

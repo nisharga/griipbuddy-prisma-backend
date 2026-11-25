@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod/v3";
 
 const phone_number = z
   .string({ required_error: "Phone number is required." })

@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod/v3";
 
 export const PAYMENT_TERMS = ["CASH ON DELIVERY", "NET_7", "NET_15", "NET_30", "NET_60"] as const;
 

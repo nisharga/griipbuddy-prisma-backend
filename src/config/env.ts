@@ -2,7 +2,7 @@
 // only resolve under node16/bundler module resolution).
 import dotenv from "dotenv";
 dotenv.config({ quiet: true });
-import { z } from "zod";
+import { z } from "zod/v3";
 
 /**
  * Every environment variable is read here, once, and validated at boot.

@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod/v3";
 
 /** The "Shop now" style button on a hero video. */
 const button = z.object({

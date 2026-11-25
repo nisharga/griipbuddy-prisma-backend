@@ -1,4 +1,4 @@
-import type { ZodError } from "zod";
+import type { ZodError } from "zod/v3";
 import type { IGenericErrorResponse } from "@/interfaces/common";
 
 const handleZodError = (error: ZodError): IGenericErrorResponse => {

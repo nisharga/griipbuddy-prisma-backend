@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod/v3";
 import { PERMISSIONS } from "@/constants/permissions";
 
 export const permissionList = z.array(z.enum(PERMISSIONS as unknown as [string, ...string[]]), {

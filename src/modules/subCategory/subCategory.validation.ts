@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod/v3";
 
 const id = (message: string) => z.string({ required_error: message }).trim().min(1, message);
 const name = z

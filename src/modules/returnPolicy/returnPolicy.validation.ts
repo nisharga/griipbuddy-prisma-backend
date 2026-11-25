@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod/v3";
 
 const body = z.object({
   title: z.string({ required_error: "Title is required." }).trim().min(1, "Title is required."),

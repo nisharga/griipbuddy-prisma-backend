@@ -22,6 +22,45 @@ const refreshToken = catchAsync(async (req: Request, res: Response) => {
   sendResponse(res, { statusCode: httpStatus.OK, success: true, message: "Token refreshed.", data: result });
 });
 
+const logout = catchAsync(async (req: Request, res: Response) => {
+  await UserService.logout(req.user!.id);
+  sendResponse(res, { statusCode: httpStatus.OK, success: true, message: "Logged out from all devices." });
+});
+
+const changeMyPassword = catchAsync(async (req: Request, res: Response) => {
+  const result = await UserService.changeMyPassword(
+    req.user!.id,
+    req.body.old_password,
+    req.body.new_password
+  );
+  auditLog(req, "user.password_change_self", "user", req.user!.id);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Password changed. Other devices have been logged out.",
+    data: result,
+  });
+});
+
+const forgotPassword = catchAsync(async (req: Request, res: Response) => {
+  const result = await UserService.forgotPassword(req.body.phone_number);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "If this number belongs to a staff account, a reset code has been sent.",
+    data: result,
+  });
+});
+
+const resetPassword = catchAsync(async (req: Request, res: Response) => {
+  await UserService.resetPassword(req.body.phone_number, req.body.otp, req.body.new_password);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Password reset. Please log in with your new password.",
+  });
+});
+
 const getMyProfile = catchAsync(async (req: Request, res: Response) => {
   const result = await UserService.getProfile(req.user!.id);
   sendResponse(res, {
@@ -99,6 +138,10 @@ const deleteUser = catchAsync(async (req: Request, res: Response) => {
 export const UserController = {
   adminLogin,
   refreshToken,
+  logout,
+  changeMyPassword,
+  forgotPassword,
+  resetPassword,
   getMyProfile,
   createStaff,
   getUsersByRoles,

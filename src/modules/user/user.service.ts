@@ -4,12 +4,15 @@ import { badRequest, conflict, forbidden, notFound, unauthorized } from "@/error
 import { notId } from "@/helpers/queryHelper";
 import { NEWEST_FIRST, paginate, searchWhere, sortBy } from "@/helpers/queryBuilder";
 import type { IPagination } from "@/interfaces/pagination";
-import { issueTokens, verifyRefreshToken } from "@/helpers/jwtHelpers";
+import { APP_NAME } from "@/config";
+import { assertTokenCurrent, issueTokens, verifyRefreshToken } from "@/helpers/jwtHelpers";
+import { requireLocalPhone, sendCode, useCode } from "@/helpers/otpHelper";
 import { hashPassword, verifyPassword } from "@/helpers/passwordHelper";
+import { phoneVariants } from "@/helpers/phoneHelper";
 import { CUSTOMER_ROLE } from "@/constants/permissions";
 import { effectivePermissions } from "@/helpers/permissionHelper";
 
-/** Staff accounts: admin login, tokens, staff CRUD and permissions. */
+/** Staff accounts: admin login, logout, passwords, staff CRUD and permissions. */
 
 /** The outlet fields shown with a user. */
 const OUTLET = { select: { id: true, name: true, slug: true, type: true } } as const;
@@ -64,20 +67,95 @@ const adminLogin = async (phone_number: string, password: string) => {
 
   await prisma.user.update({ where: { id: user.id }, data: { last_active: new Date() } });
 
-  const tokens = issueTokens({ id: user.id, role: user.role, phone_number: user.phone_number });
+  const tokens = issueTokens(user);
   const profile = await getProfile(user.id);
   return { ...tokens, user: profile };
 };
 
 /** New tokens from a refresh token (only for active staff). */
 const refresh = async (refreshToken: string) => {
-  const { id } = verifyRefreshToken(refreshToken);
+  const payload = verifyRefreshToken(refreshToken);
 
-  const user = await prisma.user.findFirst({ where: { id, is_deleted: false, status: "ACTIVE" } });
+  const user = await prisma.user.findFirst({
+    where: { id: payload.id, is_deleted: false, status: "ACTIVE" },
+  });
   if (!user || user.role === CUSTOMER_ROLE) throw unauthorized("Please log in again.");
+  assertTokenCurrent(payload, user);
 
-  const tokens = issueTokens({ id: user.id, role: user.role, phone_number: user.phone_number });
+  const tokens = issueTokens(user);
   return tokens;
+};
+
+/** Log out on every device: all tokens issued so far stop working. */
+const logout = async (id: string): Promise<void> => {
+  await prisma.user.update({ where: { id }, data: { token_version: { increment: 1 } } });
+};
+
+// ---------------------------------------------------------------- passwords
+
+/** Save a new password and log the user out everywhere. Returns the updated user. */
+const setNewPassword = async (id: string, newPassword: string) => {
+  const result = await prisma.user.update({
+    where: { id },
+    data: { password: await hashPassword(newPassword), token_version: { increment: 1 } },
+  });
+  return result;
+};
+
+/** Change my own password (needs the current one). Other devices are logged out; this one gets new tokens. */
+const changeMyPassword = async (id: string, oldPassword: string, newPassword: string) => {
+  const user = await prisma.user.findFirst({ where: { id, is_deleted: false } });
+  if (!user) throw notFound("User");
+
+  const oldPasswordOk = await verifyPassword(oldPassword, user.password);
+  if (!oldPasswordOk) throw badRequest("Your current password is wrong.", "old_password");
+
+  const updated = await setNewPassword(id, newPassword);
+  const tokens = issueTokens(updated);
+  return tokens;
+};
+
+/** The active staff member with this phone, or null. */
+const findStaffByPhone = async (phone: string) => {
+  const result = await prisma.user.findFirst({
+    where: {
+      phone_number: { in: phoneVariants(phone) },
+      role: { not: CUSTOMER_ROLE },
+      is_deleted: false,
+      status: "ACTIVE",
+    },
+  });
+  return result;
+};
+
+/**
+ * Forgot password, step 1: send a reset code to the staff member's phone.
+ * Unknown numbers get the same reply (so nobody can find out which numbers are staff).
+ */
+const forgotPassword = async (rawPhone: string) => {
+  const phone = requireLocalPhone(rawPhone);
+
+  const staffMember = await findStaffByPhone(phone);
+  if (!staffMember) return { phone_number: phone };
+
+  const result = await sendCode(
+    phone,
+    "password_reset",
+    (code, minutes) =>
+      `${code} is your ${APP_NAME} password reset code. It expires in ${minutes} minutes. If you didn't ask for this, ignore it.`
+  );
+  return result;
+};
+
+/** Forgot password, step 2: the code from the SMS + a new password. Logs out every device. */
+const resetPassword = async (rawPhone: string, code: string, newPassword: string): Promise<void> => {
+  const phone = requireLocalPhone(rawPhone);
+  await useCode(phone, "password_reset", code);
+
+  const staffMember = await findStaffByPhone(phone);
+  if (!staffMember) throw badRequest("This account can't be reset. Please contact an administrator.");
+
+  await setNewPassword(staffMember.id, newPassword);
 };
 
 // ---------------------------------------------------------------- staff
@@ -133,7 +211,10 @@ const updateStaff = async (id: string, input: StaffInput) => {
   // Sent as "" → cleared.
   if (input.email !== undefined) data.email = input.email || null;
   if (input.outlet !== undefined) data.outlet_id = input.outlet || null;
-  if (input.password) data.password = await hashPassword(input.password);
+  if (input.password) {
+    data.password = await hashPassword(input.password);
+    data.token_version = { increment: 1 }; // log them out everywhere
+  }
   if (input.role_ref) Object.assign(data, await getRoleFields(input.role_ref));
 
   await prisma.user.update({ where: { id }, data });
@@ -153,12 +234,12 @@ const deleteUser = async (id: string, actorId: string): Promise<void> => {
   });
 };
 
-/** Set a user's password (admin action). */
+/** Set a user's password (admin action). They are logged out everywhere. */
 const changePassword = async (id: string, newPassword: string): Promise<void> => {
   const user = await prisma.user.findFirst({ where: { id, is_deleted: false } });
   if (!user) throw notFound("User");
 
-  await prisma.user.update({ where: { id }, data: { password: await hashPassword(newPassword) } });
+  await setNewPassword(id, newPassword);
 };
 
 /**
@@ -188,6 +269,10 @@ export const UserService = {
   getProfile,
   adminLogin,
   refresh,
+  logout,
+  changeMyPassword,
+  forgotPassword,
+  resetPassword,
   createStaff,
   updateStaff,
   deleteUser,

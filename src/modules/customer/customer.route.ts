@@ -28,6 +28,7 @@ router.post(
 );
 
 // logged-in customer
+router.post("/logout", customer, CustomerController.logout);
 router.get("/me", customer, CustomerController.getMe);
 router.patch(
   "/me",

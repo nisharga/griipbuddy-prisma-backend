@@ -1,7 +1,7 @@
 import type { Request, RequestHandler } from "express";
 import { prisma } from "@/shared/prisma";
 import { forbidden, unauthorized } from "@/errors/ApiError";
-import { verifyAccessToken } from "@/helpers/jwtHelpers";
+import { assertTokenCurrent, verifyAccessToken } from "@/helpers/jwtHelpers";
 import { CUSTOMER_ROLE } from "@/constants/permissions";
 import { can, effectivePermissions, isSuperRole } from "@/helpers/permissionHelper";
 import type { IAuthUser } from "@/interfaces/common";
@@ -16,12 +16,20 @@ export const auth: RequestHandler = async (req, _res, next) => {
   try {
     const token = bearer(req);
     if (!token) throw unauthorized();
-    const { id } = verifyAccessToken(token);
+    const payload = verifyAccessToken(token);
     const user = await prisma.user.findUnique({
-      where: { id },
-      select: { id: true, role: true, permissions: true, status: true, is_deleted: true },
+      where: { id: payload.id },
+      select: {
+        id: true,
+        role: true,
+        permissions: true,
+        status: true,
+        is_deleted: true,
+        token_version: true,
+      },
     });
     if (!user || user.is_deleted) throw unauthorized("Your account no longer exists. Please log in again.");
+    assertTokenCurrent(payload, user);
     if (user.status !== "ACTIVE")
       throw forbidden("Your account is not active. Please contact an administrator.");
     if (user.role === CUSTOMER_ROLE) throw forbidden("Customers cannot access the admin panel.");
@@ -61,12 +69,13 @@ export const customer: RequestHandler = async (req, _res, next) => {
     const token = bearer(req);
     if (!token) throw unauthorized();
 
-    const { id } = verifyAccessToken(token);
+    const payload = verifyAccessToken(token);
     const user = await prisma.user.findUnique({
-      where: { id },
-      select: { id: true, role: true, status: true, is_deleted: true },
+      where: { id: payload.id },
+      select: { id: true, role: true, status: true, is_deleted: true, token_version: true },
     });
     if (!user || user.is_deleted) throw unauthorized("Your account no longer exists. Please log in again.");
+    assertTokenCurrent(payload, user);
     if (user.role !== CUSTOMER_ROLE) throw forbidden("Please log in with your customer account.");
     if (user.status !== "ACTIVE") throw forbidden("Your account is not active. Please contact us.");
 

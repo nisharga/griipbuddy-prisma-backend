@@ -1,5 +1,5 @@
 import type { RequestHandler } from "express";
-import type { AnyZodObject, ZodEffects } from "zod";
+import type { AnyZodObject, ZodEffects } from "zod/v3";
 
 /** Validate { body, query, params } against a Zod schema before the controller runs. */
 const validateRequest =

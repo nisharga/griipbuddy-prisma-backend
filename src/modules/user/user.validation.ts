@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod/v3";
 
 const phone = z
   .string({ required_error: "Phone number is required" })
@@ -58,7 +58,37 @@ const changePasswordSchema = z.object({
     }),
 });
 
+const newPassword = z
+  .string({ required_error: "New password is required" })
+  .min(8, "Password must be at least 8 characters");
+
+/** Change my own password. */
+const changeMyPasswordSchema = z.object({
+  body: z.object({
+    old_password: z.string({ required_error: "Current password is required" }).min(1),
+    new_password: newPassword,
+  }),
+});
+
+/** Forgot password: step 1 (send code) and step 2 (code + new password). */
+const forgotPasswordSchema = z.object({
+  body: z.object({ phone_number: z.string({ required_error: "Phone number is required" }).trim().min(1) }),
+});
+const resetPasswordSchema = z.object({
+  body: z.object({
+    phone_number: z.string({ required_error: "Phone number is required" }).trim().min(1),
+    otp: z
+      .string({ required_error: "Code is required" })
+      .trim()
+      .regex(/^\d{4,8}$/, "Enter the code from the SMS."),
+    new_password: newPassword,
+  }),
+});
+
 export const UserValidation = {
+  changeMyPasswordSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
   loginSchema,
   refreshSchema,
   createStaffSchema,

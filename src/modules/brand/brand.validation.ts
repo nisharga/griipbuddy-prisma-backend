@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod/v3";
 
 const body = z.object({
   name: z.string({ required_error: "Brand name is required" }).trim().min(1, "Brand name is required"),

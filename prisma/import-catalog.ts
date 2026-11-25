@@ -15,7 +15,7 @@
  */
 import fs from "fs/promises";
 import path from "path";
-import { z } from "zod";
+import { z } from "zod/v3";
 import { prisma } from "@/shared/prisma";
 import { saveFile } from "@/helpers/fileStorage";
 import { BusinessLocationService } from "@/modules/businessLocation/businessLocation.service";

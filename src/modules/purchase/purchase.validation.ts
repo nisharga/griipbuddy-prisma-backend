@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod/v3";
 
 export const PURCHASE_STATUSES = ["draft", "ordered", "received", "cancelled"] as const;
 

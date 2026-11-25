@@ -65,10 +65,6 @@ export const PERMISSIONS = [
   "review.update",
   "review.delete",
   "review.view",
-  "coupon.create",
-  "coupon.update",
-  "coupon.delete",
-  "coupon.view",
 ] as const;
 
 /** Roles that always hold every permission. */

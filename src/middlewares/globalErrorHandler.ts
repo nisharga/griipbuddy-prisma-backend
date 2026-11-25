@@ -1,5 +1,5 @@
 import type { ErrorRequestHandler } from "express";
-import { ZodError } from "zod";
+import { ZodError } from "zod/v3";
 import multer from "multer";
 import config from "@/config";
 import ApiError from "@/errors/ApiError";

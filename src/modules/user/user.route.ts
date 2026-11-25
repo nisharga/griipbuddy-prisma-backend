@@ -1,6 +1,6 @@
 import express from "express";
 import { auth, staff } from "@/middlewares/auth";
-import { authLimiter } from "@/middlewares/rateLimiter";
+import { authLimiter, otpLimiter } from "@/middlewares/rateLimiter";
 import validateRequest from "@/middlewares/validateRequest";
 import { UserController } from "./user.controller";
 import { UserValidation } from "./user.validation";
@@ -19,6 +19,29 @@ router.post(
   validateRequest(UserValidation.refreshSchema),
   UserController.refreshToken
 );
+router.post("/logout", auth, UserController.logout);
+router.patch(
+  "/change-password",
+  authLimiter,
+  auth,
+  validateRequest(UserValidation.changeMyPasswordSchema),
+  UserController.changeMyPassword
+);
+
+// forgot password (public): 1) code by SMS → 2) code + new password
+router.post(
+  "/forgot-password",
+  otpLimiter,
+  validateRequest(UserValidation.forgotPasswordSchema),
+  UserController.forgotPassword
+);
+router.post(
+  "/reset-password",
+  authLimiter,
+  validateRequest(UserValidation.resetPasswordSchema),
+  UserController.resetPassword
+);
+
 router.get("/", auth, UserController.getMyProfile);
 
 router.post(
