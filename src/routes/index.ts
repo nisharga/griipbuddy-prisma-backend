@@ -2,6 +2,7 @@ import express from "express";
 import type { Router } from "express";
 import { prisma } from "@/shared/prisma";
 import { redis } from "@/shared/redis";
+import { checkIdParam, checkListQuery, ID_PARAMS } from "@/middlewares/validateInput";
 import {
   BrandRoutes,
   BusinessLocationRoutes,
@@ -67,6 +68,12 @@ export const moduleRoutes: { path: string; route: Router }[] = [
   { path: "/faq", route: FaqRoutes },
 ];
 
-moduleRoutes.forEach((route) => router.use(route.path, route.route));
+// Shared checks: ?page / ?limit / ?sortOrder / dates (see middlewares/validateInput.ts) …
+router.use(checkListQuery);
+moduleRoutes.forEach(({ path, route }) => {
+  // … and ids in the URL (/:id, /:productId …) — a bad id is a 400 before any database query.
+  ID_PARAMS.forEach((name) => route.param(name, checkIdParam));
+  router.use(path, route);
+});
 
 export default router;

@@ -55,7 +55,7 @@ src/
 ├─ modules/             index.ts re-exports every module
 │  └─ <name>/           <name>.route.ts · .controller.ts · .service.ts · .validation.ts · index.ts
 ├─ routes/index.ts      moduleRoutes = [{ path, route }] + /health
-├─ middlewares/         auth, globalErrorHandler, notFound, rateLimiter, requestLogger, validateRequest
+├─ middlewares/         auth, globalErrorHandler, notFound, rateLimiter, requestLogger, validateRequest, validateInput
 ├─ jobs/                queue (BullMQ or inline), job handlers, cron
 ├─ config/              env.ts (.env, validated with Zod) · appConfigs.ts (fixed settings) · index.ts
 ├─ constants/           pagination, permissions & roles
@@ -129,15 +129,22 @@ src/modules/coupon/
 
 ### 3. Validation: `coupon.validation.ts`
 
-Bad input is rejected with a 400 before your code runs.
+Bad input is rejected with a 400 before your code runs. A schema can check `body`, `query` and `params`.
 
 ```ts
-import { z } from "zod";
+import { z } from "zod/v3";
+import { listQuery } from "@/middlewares/validateInput";
 
 const code = z.string().trim().min(3, "Code must be at least 3 characters.").max(30);
 const discount = z.coerce.number().positive("Discount must be more than 0.");
 
 export const CouponValidation = {
+  // GET /coupon?is_active=true&page=1 … (page/limit/sort/search come from listQuery)
+  listSchema: z.object({
+    query: listQuery.extend({
+      is_active: z.enum(["true", "false"], { message: "is_active must be true or false" }).optional(),
+    }),
+  }),
   createSchema: z.object({
     body: z.object({ code, discount, is_active: z.boolean().default(true) }),
   }),
@@ -270,7 +277,8 @@ export const CouponController = { getAll, getById, create, update, remove };
 
 ### 6. Routes: `coupon.route.ts`
 
-Each line = **URL + who can call it + body check + controller**.
+Each line = **URL + who can call it + input check + controller**. Ids in the URL (`/:id`, `/:productId`) are
+checked for you, so `/coupon/abc` is a 400 "Invalid id." without touching the database.
 
 ```ts
 import express from "express";
@@ -282,7 +290,12 @@ import { CouponValidation } from "./coupon.validation";
 // /coupon
 const router = express.Router();
 
-router.get("/", ...staff("coupon.view"), CouponController.getAll);
+router.get(
+  "/",
+  ...staff("coupon.view"),
+  validateRequest(CouponValidation.listSchema), // ?is_active=maybe → 400
+  CouponController.getAll
+);
 router.get("/:id", ...staff("coupon.view"), CouponController.getById);
 router.post(
   "/",
@@ -368,6 +381,77 @@ summary in `swagger/endpoints.ts` if you like). Before committing: `npm run lint
 3. Register it in `src/modules/index.ts` and `src/routes/index.ts`
 4. Add the permissions (backend + admin `PermissionEnum`)
 5. `npm run docs` → test at `/docs` (or Postman)
+
+## Search, sort and pagination
+
+Every list endpoint takes the same query string:
+
+```
+GET /api/v1/brand/admin/all?searchTerm=nike&page=2&limit=20&sortBy=name&sortOrder=asc
+```
+
+| Query                   | What it does                                                                | Default          |
+| ----------------------- | --------------------------------------------------------------------------- | ---------------- |
+| `page`                  | Which page (1, 2, 3 …)                                                      | `1`              |
+| `limit`                 | Rows per page (1–1000)                                                      | `10` (per route) |
+| `sortBy`                | Field to sort by; only fields the service allows, others are ignored        | newest first     |
+| `sortOrder`             | `asc` or `desc`                                                             | `desc`           |
+| `search` / `searchTerm` | Text search (case-insensitive, matches part of a word) across chosen fields | no search        |
+| anything else           | Exact filters, e.g. `status=PENDING`, `is_active=true`                      | no filter        |
+
+The service returns the rows and the page info together:
+
+```json
+{
+  "data": [ … 20 brands … ],
+  "meta": { "page": 2, "limit": 20, "total": 57, "totalPage": 3 }
+}
+```
+
+The frontend shows "page 2 of 3" from `meta`, and asks for `page=3` next. Most admin lists send this whole object as
+the response's `data` (so `data.data` and `data.meta`). A few (products, purchases, reviews, FAQs, customer orders)
+put `meta` next to `data` at the top level, because that's where their screens read it. New endpoints: use the
+top-level style, like the Coupon example.
+
+### How it works in the code
+
+```
+request ──► controller ──────────────────────────► service ──────────────────────────► database
+            calculatePagination(req)               searchWhere  → WHERE name ILIKE '%nike%'
+              → { page, limit, skip, sortBy,       filterWhere  → AND is_active = true
+                  sortOrder }                      sortBy       → ORDER BY name ASC
+            queryString(req, "searchTerm")         paginate     → LIMIT 20 OFFSET 20 + COUNT(*)
+```
+
+| Helper (`src/helpers`)                      | Job                                                                         |
+| ------------------------------------------- | --------------------------------------------------------------------------- |
+| `paginationHelpers.calculatePagination`     | Reads `page`, `limit`, `sortBy`, `sortOrder` → `{ page, limit, skip, … }`   |
+| `queryString(req, "name")`                  | One query value as trimmed text; empty / `"undefined"` / `"null"` → nothing |
+| `searchWhere(text, ["name", "brand.name"])` | Search one text across several fields (dotted = a related table)            |
+| `filterWhere({ status, is_active })`        | Exact filters; empty values are skipped, so "no filter" just works          |
+| `sortBy(pagination, allowed, NEWEST_FIRST)` | The client's sort, only for `allowed` fields (no sorting by hidden columns) |
+| `paginate(pagination, { findMany, count })` | Fetches the page and the total together → `{ data, meta }`                  |
+
+A full example is the Coupon service in [How to create a new API](#4-service-couponservicets).
+
+### Bad values are rejected
+
+`src/middlewares/validateInput.ts` checks the shared query fields and URL ids for **every** route (nothing to add
+per route). Empty values (`?page=`, `?limit=undefined`) count as "not sent".
+
+| Request                         | Response                                       |
+| ------------------------------- | ---------------------------------------------- |
+| `?limit=abc`                    | 400 `limit must be a whole number`             |
+| `?limit=5000`                   | 400 `limit must be between 1 and 1000`         |
+| `?sortOrder=up`                 | 400 `sortOrder must be asc or desc`            |
+| `?startDate=yesterday`          | 400 `startDate must be a date like 2024-12-31` |
+| `?min_price=abc`                | 400 `min_price must be a number`               |
+| `?page=1&page=2`                | 400 `page must be sent once`                   |
+| `/brand/not-an-id`              | 400 `Invalid id.` (no database query)          |
+| `/brand/<valid but unknown id>` | 404 `Brand not found.`                         |
+
+For a route's **own** query fields (like `is_active` or `status`), add `query: listQuery.extend({ … })` to its
+schema and use `validateRequest` (see step 3 above).
 
 ## API docs (Swagger)
 
