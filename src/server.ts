@@ -13,6 +13,10 @@ let shuttingDown = false;
 const main = async () => {
   await prisma.$connect();
   logger.info("database connected");
+  if (config.otp.staticCode) {
+    const numbers = config.otp.staticPhones.length ? config.otp.staticPhones.join(", ") : "EVERY number";
+    logger.warn(`⚠ OTP_STATIC_CODE is on: ${numbers} can log in with the fixed code, no SMS. Testing only.`);
+  }
 
   server = createApp().listen(config.port, () =>
     logger.info({ port: config.port, env: config.nodeEnv }, "🚀 API listening")

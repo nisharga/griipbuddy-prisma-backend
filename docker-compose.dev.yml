@@ -26,9 +26,9 @@ services:
     ports:
       - "6379:6379"
 
-  # Optional — a fake BulkSMSBD that prints SMS instead of sending them.
+  # Optional — a fake SMS gateway (Alpha SMS + BulkSMSBD) that prints SMS instead of sending them.
   #   docker compose -f docker-compose.dev.yml --profile sms up -d
-  #   .env: SMS_API_KEY=test  SMS_SENDER_ID=test  SMS_BASE_URL=http://localhost:4010/api/smsapi
+  #   .env: SMS_PROVIDER=alpha  SMS_API_KEY=test  SMS_BASE_URL=http://localhost:4010/sendsms
   fake-sms:
     image: node:22-alpine
     container_name: griipbuddy-fake-sms

@@ -58,9 +58,15 @@ const schema = z.object({
   CLOUDINARY_API_KEY: optional,
   CLOUDINARY_API_SECRET: optional,
 
+  // Fixed login code for testing without SMS (empty = real random codes).
+  OTP_STATIC_CODE: optional.refine((v) => v === undefined || /^\d{6}$/.test(v), "Must be 6 digits."),
+  // Limit the fixed code to these numbers (comma-separated). Empty = every number.
+  OTP_STATIC_PHONES: csv,
+
+  SMS_PROVIDER: z.enum(["alpha", "bulksmsbd"]).default("alpha"),
   SMS_API_KEY: optional,
   SMS_SENDER_ID: optional,
-  SMS_BASE_URL: z.string().url().default("http://bulksmsbd.net/api/smsapi"),
+  SMS_BASE_URL: optional,
 
   SMTP_HOST: optional,
   SMTP_PORT: z.coerce.number().int().positive().default(587),
@@ -85,6 +91,24 @@ if (!parsed.success) {
 }
 
 const e = parsed.data;
+
+/** Each SMS provider's send URL (SMS_BASE_URL overrides it, e.g. for the fake SMS server). */
+const SMS_URLS = {
+  alpha: "https://api.sms.net.bd/sendsms",
+  bulksmsbd: "http://bulksmsbd.net/api/smsapi",
+} as const;
+
+/** SMS settings, or undefined when SMS is off. BulkSMSBD also needs a sender ID. */
+const smsConfig = (vars: typeof e) => {
+  if (!vars.SMS_API_KEY) return undefined;
+  if (vars.SMS_PROVIDER === "bulksmsbd" && !vars.SMS_SENDER_ID) return undefined;
+  return {
+    provider: vars.SMS_PROVIDER,
+    apiKey: vars.SMS_API_KEY,
+    senderId: vars.SMS_SENDER_ID,
+    baseUrl: vars.SMS_BASE_URL ?? SMS_URLS[vars.SMS_PROVIDER],
+  };
+};
 
 export const env = {
   nodeEnv: e.NODE_ENV,
@@ -125,10 +149,8 @@ export const env = {
           ).replace(/\/$/, ""),
         }
       : undefined,
-  sms:
-    e.SMS_API_KEY && e.SMS_SENDER_ID
-      ? { apiKey: e.SMS_API_KEY, senderId: e.SMS_SENDER_ID, baseUrl: e.SMS_BASE_URL }
-      : undefined,
+  sms: smsConfig(e),
+  otp: { staticCode: e.OTP_STATIC_CODE, staticPhones: e.OTP_STATIC_PHONES },
   smtp:
     e.SMTP_HOST && e.SMTP_USER
       ? {

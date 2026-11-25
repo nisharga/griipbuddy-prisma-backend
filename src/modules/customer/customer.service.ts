@@ -56,6 +56,19 @@ const sameHash = (a: string, b: string): boolean => {
 
 const tooManyRequests = (message: string) => new ApiError(httpStatus.TOO_MANY_REQUESTS, message);
 
+/**
+ * The fixed test code (OTP_STATIC_CODE) for this phone, or undefined for a real random code.
+ * With OTP_STATIC_PHONES set, only those numbers get the fixed code.
+ */
+const staticCodeFor = (phone: string): string | undefined => {
+  const { staticCode, staticPhones } = config.otp;
+  if (!staticCode) return undefined;
+  if (staticPhones.length === 0) return staticCode;
+
+  const allowed = staticPhones.map((number) => toLocalPhone(number));
+  return allowed.includes(phone) ? staticCode : undefined;
+};
+
 /** "PAID" / "PARTIAL" / "VERIFYING" (payment sent, waiting for admin) / "UNPAID". */
 const paymentStatusOf = (order: {
   total_amount: Prisma.Decimal;
@@ -90,7 +103,8 @@ const sendOtp = async (rawPhone: string) => {
     throw tooManyRequests("Too many codes requested for this number. Please try again in an hour.");
   }
 
-  const code = String(randomInt(0, 10 ** OTP.length)).padStart(OTP.length, "0");
+  const staticCode = staticCodeFor(phone);
+  const code = staticCode ?? String(randomInt(0, 10 ** OTP.length)).padStart(OTP.length, "0");
 
   // Only the newest code works: retire older unused ones, then save the new one.
   await prisma.$transaction([
@@ -104,9 +118,12 @@ const sendOtp = async (rawPhone: string) => {
     }),
   ]);
 
-  const minutes = Math.round(OTP.expiresInSeconds / 60);
-  const message = `${code} is your ${APP_NAME} login code. It expires in ${minutes} minutes. Don't share it with anyone.`;
-  void enqueue("sms.send", { to: phone, message });
+  // A fixed test code is not sent by SMS (the tester already knows it).
+  if (!staticCode) {
+    const minutes = Math.round(OTP.expiresInSeconds / 60);
+    const message = `${code} is your ${APP_NAME} login code. It expires in ${minutes} minutes. Don't share it with anyone.`;
+    void enqueue("sms.send", { to: phone, message });
+  }
 
   // Outside production the code is also logged and returned, so you can test without SMS.
   const showCode = !config.isProd;
